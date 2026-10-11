@@ -1,10 +1,12 @@
 namespace PixelTransfer.Core;
 
-// Retains only the transfer identity and rectangle, never a desktop screenshot.
+// Retains decoded packets and transfer geometry, never a desktop screenshot.
 public sealed class FrameTracker
 {
     private byte[]? transferId;
     public FrameBounds? Bounds { get; private set; }
+    public FrameInspection Inspection { get; private set; } = new([], FrameReadStatus.NoMarkers);
+    public double Scale { get; private set; } = 1;
 
     public TransferPacket? Read(Func<FrameBounds, RgbImage> capture, FrameBounds desktop)
     {
@@ -23,14 +25,16 @@ public sealed class FrameTracker
     {
         TransferPacket? match = null;
         FrameBounds? bounds = null;
-        foreach (var frame in FrameCodec.Locate(image))
+        Inspection = FrameCodec.Inspect(image);
+        foreach (var frame in Inspection.Packets)
         {
-            var packet = TransferPacket.Parse(frame.Bytes, frame.Size);
-            if (packet == null || (transferId != null && !transferId.AsSpan().SequenceEqual(packet.TransferId))) continue;
+            var packet = frame.Packet;
+            if (transferId != null && !transferId.AsSpan().SequenceEqual(packet.TransferId)) continue;
             if (match != null && !match.TransferId.AsSpan().SequenceEqual(packet.TransferId))
                 throw new InvalidOperationException("畫面有多個不同傳輸，請只保留一個播放視窗，或改用手動框選。");
             match = packet;
             bounds = frame.Bounds with { X = origin.X + frame.Bounds.X, Y = origin.Y + frame.Bounds.Y };
+            Scale = frame.Scale;
         }
         if (match != null)
         {

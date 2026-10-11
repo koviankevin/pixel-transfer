@@ -1,4 +1,7 @@
 using System.IO;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using PixelTransfer.Core;
 
 namespace PixelTransfer.Windows;
@@ -55,6 +58,32 @@ internal static class WindowsSmoke
             await VerifyAuto(); // Uses the tracked rectangle.
             player.Left += player.Left > 80 ? -40 : 40;
             await VerifyAuto(); // Reacquires the moved window.
+            player.Close();
+            byte[] payload = new byte[size.PayloadBytes]; new Random(152).NextBytes(payload);
+            packet = TransferPacket.Split(payload, size)[0];
+            var zoomImage = new Image { Source = BitmapAdapter.Source(FrameCodec.Render(packet)), Stretch = Stretch.Fill,
+                SnapsToDevicePixels = true, UseLayoutRounding = true };
+            RenderOptions.SetBitmapScalingMode(zoomImage, BitmapScalingMode.NearestNeighbor);
+            var zoom = new Window { Content = zoomImage, SizeToContent = SizeToContent.WidthAndHeight,
+                ResizeMode = ResizeMode.NoResize, WindowStartupLocation = WindowStartupLocation.CenterScreen,
+                UseLayoutRounding = true, Title = "125% decoding test" };
+            zoom.Loaded += (_, _) =>
+            {
+                var dpi = VisualTreeHelper.GetDpi(zoom);
+                zoomImage.Width = 800 / dpi.DpiScaleX; zoomImage.Height = 450 / dpi.DpiScaleY;
+            };
+            try
+            {
+                zoom.Show(); zoom.Activate();
+                for (int attempt = 0; attempt < 4; attempt++)
+                {
+                    await Task.Delay(500);
+                    var inspection = FrameCodec.Inspect(NativeScreen.Capture(desktop));
+                    if (inspection.Packets.Any(p => p.Packet.Payload.AsSpan().SequenceEqual(payload) && Math.Abs(p.Scale - 1.25) < 0.01)) return;
+                }
+                throw new InvalidOperationException("125% WPF display could not be restored.");
+            }
+            finally { zoom.Close(); }
         }
         finally { player.Close(); main.Close(); }
     }

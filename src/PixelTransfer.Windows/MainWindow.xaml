@@ -28,7 +28,7 @@
       <TabItem Header="  接收檔案  ">
         <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
           <TextBlock Text="自動尋找 RDP 內的資料圖" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-          <TextBlock Text="將 RDP 放在主螢幕，讓完整資料圖與三個定位點可見。找到後只讀取圖像區域，移動後會重新尋找；請保持 1:1 顯示。" Foreground="#596879"/>
+          <TextBlock Text="讓完整資料圖與三個定位點在主螢幕可見。程式會嘗試還原縮放後的像素；100% 顯示最可靠，縮小或平滑處理可能遺失資料。" Foreground="#596879"/>
           <WrapPanel Margin="0,12,0,0"><Button x:Name="ReceiveButton" Content="自動尋找並接收" Click="Receive_Click"/><Button x:Name="ManualReceiveButton" Content="手動框選接收" Click="ManualReceive_Click"/><Button x:Name="StopButton" Content="停止" IsEnabled="False" Click="Stop_Click"/><Button x:Name="ImportButton" Content="匯入截圖…" Click="Import_Click"/></WrapPanel>
           <ProgressBar x:Name="ReceiveProgress" Height="16" Maximum="100" Margin="0,16,0,8"/>
           <TextBlock x:Name="ReceiveStatus" Text="尚未開始接收。" Margin="0,0,0,22"/>
@@ -50,6 +50,6 @@
         </StackPanel></ScrollViewer>
       </TabItem>
     </TabControl>
-    <TextBlock Grid.Row="2" Margin="0,16,0,0" FontSize="12" Foreground="#596879" Text="Windows 預覽版 · RGB 模式不容許縮放或有損壓縮 · 請先校驗實際 RDP 畫面"/>
+    <TextBlock Grid.Row="2" Margin="0,16,0,0" FontSize="12" Foreground="#596879" Text="Windows 預覽版 · 找到定位點會嘗試還原，通過校驗才接收 · 建議 100% 顯示"/>
   </Grid>
 </Window>

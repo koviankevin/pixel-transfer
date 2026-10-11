@@ -142,14 +142,26 @@ public partial class MainWindow : Window
             {
                 token.ThrowIfCancellationRequested();
                 var desktop = NativeScreen.PrimaryArea();
-                var packet = await Task.Run(() => automatic
-                    ? tracker.Read(b => NativeScreen.Capture(new(b.X, b.Y, b.Width, b.Height)),
-                        new(desktop.X, desktop.Y, desktop.Width, desktop.Height))
-                    : FrameCodec.Read(NativeScreen.Capture(area!.Value)), token);
+                var result = await Task.Run(() =>
+                {
+                    if (automatic)
+                    {
+                        var found = tracker.Read(b => NativeScreen.Capture(new(b.X, b.Y, b.Width, b.Height)),
+                            new(desktop.X, desktop.Y, desktop.Width, desktop.Height));
+                        return (Packet: found, Inspection: tracker.Inspection, Scale: tracker.Scale);
+                    }
+                    var inspection = FrameCodec.Inspect(NativeScreen.Capture(area!.Value));
+                    var first = inspection.Packets.FirstOrDefault();
+                    return (Packet: first?.Packet, Inspection: inspection, Scale: first?.Scale ?? 1);
+                }, token);
+                var packet = result.Packet;
                 if (packet != null) collector.Add(packet);
                 Progress();
-                if (automatic && tracker.Bounds == null)
-                    ReceiveStatus.Text += " 正在主螢幕重新尋找同一傳輸，請讓完整資料圖可見。";
+                if (packet == null)
+                    ReceiveStatus.Text = (collector.Count > 0 ? $"已收到 {collector.Count} / {collector.Total} 張。" : "") +
+                        (result.Inspection.Status == FrameReadStatus.Success ? "畫面顯示另一個傳輸，正在等待原本的檔案。" : result.Inspection.Message);
+                else if (Math.Abs(result.Scale - 1) > 0.005)
+                    ReceiveStatus.Text += $" 已由約 {result.Scale:P0} 顯示比例還原並通過校驗。";
                 if (!collector.Complete) await Task.Delay(automatic && tracker.Bounds == null ? 750 : 200, token);
             }
             receivedEnvelope = collector.Assemble(); SaveButton.IsEnabled = true;
@@ -173,15 +185,18 @@ public partial class MainWindow : Window
         receiving = new CancellationTokenSource(); var token = receiving.Token;
         try
         {
+            string? failedReason = null;
             foreach (string path in dialog.FileNames)
             {
                 token.ThrowIfCancellationRequested();
-                var packet = await Task.Run(() => FrameCodec.Read(BitmapAdapter.Load(path)), token);
+                var inspection = await Task.Run(() => FrameCodec.Inspect(BitmapAdapter.Load(path)), token);
+                var packet = inspection.Packets.FirstOrDefault()?.Packet;
+                if (packet == null) failedReason = inspection.Message;
                 if (packet != null) collector.Add(packet);
                 Progress();
             }
             if (collector.Complete) { receivedEnvelope = collector.Assemble(); SaveButton.IsEnabled = true; ReceiveStatus.Text = "已收齊，可以解密並儲存。"; }
-            else ReceiveStatus.Text += " 尚未收齊；請選取含所有分片的截圖重新匯入。";
+            else ReceiveStatus.Text = $"已收到 {collector.Count} / {collector.Total} 張。" + failedReason + " 尚未收齊；請選取含所有分片的截圖重新匯入。";
         }
         catch (OperationCanceledException) { ReceiveStatus.Text = "已停止匯入。"; }
         catch (Exception ex) { Error(ex); }

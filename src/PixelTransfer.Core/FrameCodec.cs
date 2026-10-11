@@ -7,7 +7,7 @@ public sealed record ProbeResult(FrameSize Size, int ChangedChannels, int Change
     public bool Passed => ChangedChannels == 0;
 }
 
-public static class FrameCodec
+public static partial class FrameCodec
 {
     public static RgbImage Render(TransferPacket packet) => RenderBytes(packet.Serialize(), packet.Size);
     public static RgbImage RenderBytes(byte[] bytes, FrameSize size)
@@ -75,17 +75,9 @@ public static class FrameCodec
         }
         return best;
     }
-    public static TransferPacket? Read(RgbImage image)
-    {
-        foreach (var frame in Locate(image))
-        {
-            var packet = TransferPacket.Parse(frame.Bytes, frame.Size);
-            if (packet != null) return packet;
-        }
-        return null;
-    }
+    public static TransferPacket? Read(RgbImage image) => Inspect(image).Packets.FirstOrDefault()?.Packet;
 
-    private readonly record struct Point(int X, int Y);
+    private readonly record struct Point(double X, double Y, int Width, int Height);
     private static List<Point> FindMarkers(RgbImage image)
     {
         int width = image.Width, height = image.Height;
@@ -107,12 +99,20 @@ public static class FrameCodec
                 Visit(x > 0 ? p - 1 : -1); Visit(x + 1 < width ? p + 1 : -1);
                 Visit(y > 0 ? p - width : -1); Visit(y + 1 < height ? p + width : -1);
             }
-            if (maxX - minX != 39 || maxY - minY != 39 || count < 640 || count > 1360) continue;
+            int mw = maxX - minX + 1, mh = maxY - minY + 1;
+            if (mw < 10 || mh < 10 || mw > 160 || mh > 160 || Math.Abs(mw - mh) > 2) continue;
+            if (count < mw * mh * 0.35 || count > mw * mh * 0.85) continue;
             int centerDark = 0;
-            for (int y = minY + 13; y < minY + 26; y++)
-                for (int x = minX + 13; x < minX + 26; x++) if (Dark(y * width + x)) centerDark++;
-            if (centerDark > 25) continue;
-            found.Add(new(minX + 20, minY + 20));
+            int samples = 0;
+            for (int y = minY + mh / 3; y < minY + mh * 2 / 3; y++)
+                for (int x = minX + mw / 3; x < minX + mw * 2 / 3; x++)
+                { samples++; if (Dark(y * width + x)) centerDark++; }
+            if (centerDark > samples * 0.15) continue;
+            int center = (((minY + maxY) / 2) * width + (minX + maxX) / 2) * 3;
+            int high = Math.Max(rgb[center], Math.Max(rgb[center + 1], rgb[center + 2]));
+            int low = Math.Min(rgb[center], Math.Min(rgb[center + 1], rgb[center + 2]));
+            if (high - low < 60) continue; // The three finder centers are colored.
+            found.Add(new(minX + mw / 2.0, minY + mh / 2.0, mw, mh));
             if (found.Count > 24) return [];
         }
         return found;
@@ -124,22 +124,23 @@ public static class FrameCodec
         }
     }
 
-    public static IEnumerable<LocatedFrame> Locate(RgbImage image)
+    public static IEnumerable<LocatedFrame> Locate(RgbImage image) => LocateNative(image, FindMarkers(image));
+    private static IEnumerable<LocatedFrame> LocateNative(RgbImage image, List<Point> markers)
     {
-        var points = FindMarkers(image);
+        var points = markers.Where(p => p.Width == 40 && p.Height == 40).ToArray();
         foreach (var elbow in points)
             foreach (var horizontal in points)
                 foreach (var vertical in points)
                 {
                     if (elbow == horizontal || elbow == vertical || horizontal == vertical) continue;
                     if (horizontal.Y != elbow.Y || vertical.X != elbow.X) continue;
-                    int dx = horizontal.X - elbow.X, dy = vertical.Y - elbow.Y;
+                    int dx = (int)(horizontal.X - elbow.X), dy = (int)(vertical.Y - elbow.Y);
                     if (Math.Abs(dx) < 150 || Math.Abs(dy) < 150) continue;
                     int turns = dx > 0 ? (dy > 0 ? 0 : 3) : (dy > 0 ? 1 : 2);
                     int pw = Math.Abs(dx) + 72, ph = Math.Abs(dy) + 72;
                     var size = turns % 2 == 0 ? new FrameSize(pw, ph) : new FrameSize(ph, pw);
                     if (size.Width < 640 || size.Width > 3840 || size.Height < 360 || size.Height > 2160) continue;
-                    int left = Math.Min(elbow.X, horizontal.X) - 36, top = Math.Min(elbow.Y, vertical.Y) - 36;
+                    int left = (int)Math.Min(elbow.X, horizontal.X) - 36, top = (int)Math.Min(elbow.Y, vertical.Y) - 36;
                     if (left < 0 || top < 0 || left + pw > image.Width || top + ph > image.Height) continue;
                     byte[] data = new byte[size.DataBytes];
                     for (int y = 0; y < size.DataHeight; y++)

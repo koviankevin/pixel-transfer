@@ -9,9 +9,9 @@ Baseline: `v0.1.2-preview`, commit `44419172ad16b5f212442f34d1fcd909efd44901`.
 - Standard size candidates are built once rather than rebuilding LINQ/Distinct state for each marker triple. Estimated custom dimensions are still tried first and duplicate dimensions are still skipped.
 - A tracker whose crop equals the desktop used to capture and inspect that exact full desktop twice after a miss. It now clears its bounds after the first miss and searches again on the next normal poll. Subregion loss still falls back to the desktop in the same call.
 
-## Local measurements
+## Initial local measurements (default tiered runtime)
 
-Ubuntu 24.04.3 LTS, x64, .NET SDK 10.0.100 / runtime 10.0.0, 8 exposed processors. Release builds; identical fixed-seed harness; 3 warmups and 20 measured calls per scene. Baseline and current benchmark processes were run sequentially, without concurrent core tests. Shared-host scheduling can affect tails; these values are samples, not service-level guarantees. Allocation units below are decimal MB.
+Ubuntu 24.04.3 LTS, x64, .NET SDK 10.0.100 / runtime 10.0.0, 8 exposed processors. Release builds; identical fixed-seed harness; 3 warmups and 20 measured calls per scene. Baseline and current benchmark processes were run sequentially, without concurrent core tests. Shared-host scheduling can affect tails; these values are samples, not service-level guarantees. Allocation units below are decimal MB. These checked-in JSON files describe the initial default-tiered local run. After the first Windows run showed tier-dependent shifts even in unchanged scan-only controls, the benchmark project was changed to disable tiered compilation for both versions. This affects only the benchmark executable; the final controlled Windows comparison is recorded in the PR and CI artifacts.
 
 | Scene | Baseline p50 ms | Current p50 ms | Baseline p95 ms | Current p95 ms | Baseline MB/call | Current MB/call |
 |---|---:|---:|---:|---:|---:|---:|

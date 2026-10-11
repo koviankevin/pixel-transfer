@@ -9,6 +9,9 @@ dotnet run --project tests/PixelTransfer.Stress -c Release -- 20 artifacts/searc
 
 The optional first argument is the measured iteration count (2–1000, default 20),
 followed by an optional JSON output path. Every scenario gets three untimed warmups.
+The benchmark executable disables tiered compilation for both versions, so slow
+baseline scenes cannot receive a different optimization tier just because they run
+longer. This does not change the production application runtime configuration.
 No packages, screenshots, confidential files, network connections, or workstation
 access are required. All images and packet bytes are generated deterministically.
 

@@ -20,3 +20,8 @@ rdp-test.png
 rdp-probe.png
 local-rdp-screenshot.png
 example-frame.png
+**/bin/
+**/obj/
+artifacts/
+.vs/
+*.user

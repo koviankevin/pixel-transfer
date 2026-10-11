@@ -1,0 +1,54 @@
+<Window x:Class="PixelTransfer.Windows.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Pixel Transfer" Width="860" Height="760" MinWidth="740" MinHeight="620" WindowStartupLocation="CenterScreen" AllowDrop="True" Drop="File_Drop" DragOver="File_DragOver">
+  <Grid Margin="26">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,20">
+      <TextBlock Text="Pixel Transfer" FontSize="30" FontWeight="SemiBold" Foreground="#173455"/>
+      <TextBlock Text="透過 RDP 畫面傳檔 · 三點定位 · 全程本地處理" Foreground="#596879" Margin="0,6,0,0"/>
+    </StackPanel>
+    <TabControl x:Name="Tabs" Grid.Row="1" Padding="20" Background="White">
+      <TabItem Header="  發送檔案  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+          <TextBlock Text="選擇要傳送的檔案" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <TextBlock Text="可拖曳檔案到這個視窗。壓縮、加密後會自動輪播；上限 64 MiB。" Foreground="#596879"/>
+          <TextBox x:Name="FilePath" IsReadOnly="True" Margin="0,12,0,0"/>
+          <Button x:Name="ChooseFileButton" Content="選擇檔案…" HorizontalAlignment="Left" Click="ChooseFile_Click"/>
+          <Grid Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="20"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="加密密碼"/><PasswordBox x:Name="SendPassword"/></StackPanel>
+            <StackPanel Grid.Column="2"><TextBlock Text="再次輸入密碼"/><PasswordBox x:Name="ConfirmPassword"/></StackPanel>
+          </Grid>
+          <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="20"/><ColumnDefinition/></Grid.ColumnDefinitions>
+            <StackPanel><TextBlock Text="資料圖尺寸（保持原尺寸顯示）"/><ComboBox x:Name="SendSize" SelectionChanged="Size_Changed" SelectedIndex="0"><ComboBoxItem Content="1280 × 720" Tag="1280,720"/><ComboBoxItem Content="1600 × 900" Tag="1600,900"/><ComboBoxItem Content="1920 × 1080" Tag="1920,1080"/><ComboBoxItem Content="依此電腦可用空間估算" Tag="auto"/></ComboBox></StackPanel>
+            <StackPanel Grid.Column="2"><TextBlock Text="每張停留時間"/><ComboBox x:Name="Interval" SelectedIndex="2"><ComboBoxItem Content="1 秒" Tag="1"/><ComboBoxItem Content="2 秒" Tag="2"/><ComboBoxItem Content="5 秒（建議先用）" Tag="5"/><ComboBoxItem Content="10 秒" Tag="10"/></ComboBox></StackPanel>
+          </Grid>
+          <TextBlock x:Name="Capacity" Foreground="#596879"/>
+          <WrapPanel Margin="0,14,0,0"><Button x:Name="SendButton" Content="加密並開始播放" Click="Send_Click"/><Button x:Name="ExportButton" Content="匯出資料圖…" IsEnabled="False" Click="Export_Click"/></WrapPanel>
+          <TextBlock x:Name="SendStatus" Foreground="#173455" Margin="0,12,0,0"/>
+        </StackPanel></ScrollViewer>
+      </TabItem>
+      <TabItem Header="  接收檔案  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+          <TextBlock Text="框選 RDP 內的資料圖" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <TextBlock Text="包含整張資料圖與三個定位點。接收期間維持位置不動、避免遮擋；目前框選工具使用主螢幕。" Foreground="#596879"/>
+          <WrapPanel Margin="0,12,0,0"><Button x:Name="ReceiveButton" Content="框選並開始接收" Click="Receive_Click"/><Button x:Name="StopButton" Content="停止" IsEnabled="False" Click="Stop_Click"/><Button x:Name="ImportButton" Content="匯入截圖…" Click="Import_Click"/></WrapPanel>
+          <ProgressBar x:Name="ReceiveProgress" Height="16" Maximum="100" Margin="0,16,0,8"/>
+          <TextBlock x:Name="ReceiveStatus" Text="尚未開始接收。" Margin="0,0,0,22"/>
+          <TextBlock Text="解密密碼"/><PasswordBox x:Name="ReceivePassword"/>
+          <Button x:Name="SaveButton" Content="解密並儲存檔案…" HorizontalAlignment="Left" IsEnabled="False" Click="Save_Click"/>
+          <TextBlock Text="收齊後才會驗證及解密。漏讀的分片會在下一輪補齊；密碼錯誤可重新輸入，不必再接收。" Foreground="#596879" Margin="0,12,0,0"/>
+        </StackPanel></ScrollViewer>
+      </TabItem>
+      <TabItem Header="  RDP 校驗  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+          <TextBlock Text="先確認 RDP 保留每個像素" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <TextBlock Text="遠端顯示校驗圖，本地框選後檢查。通道不符數為零，才表示這一次畫面適合高容量 RGB 傳輸。" Foreground="#596879"/>
+          <TextBlock Text="校驗圖尺寸" Margin="0,18,0,0"/>
+          <ComboBox x:Name="ProbeSize" SelectedIndex="0"><ComboBoxItem Content="1280 × 720" Tag="1280,720"/><ComboBoxItem Content="1600 × 900" Tag="1600,900"/><ComboBoxItem Content="1920 × 1080" Tag="1920,1080"/><ComboBoxItem Content="依此電腦可用空間估算" Tag="auto"/></ComboBox>
+          <WrapPanel><Button Content="遠端：顯示校驗圖" Click="ShowProbe_Click"/><Button Content="儲存校驗圖…" Click="ExportProbe_Click"/></WrapPanel>
+          <WrapPanel><Button x:Name="CheckScreenButton" Content="本地：框選並校驗" Click="CheckScreen_Click"/><Button x:Name="CheckFileButton" Content="檢查已存截圖…" Click="CheckFile_Click"/></WrapPanel>
+          <Border Background="#EEF3F9" Padding="16" Margin="0,20,0,0"><TextBlock x:Name="ProbeStatus" Text="尚未校驗。RDP 請使用 1:1 顯示；PNG 無法修復遠端畫面已產生的失真。"/></Border>
+        </StackPanel></ScrollViewer>
+      </TabItem>
+    </TabControl>
+    <TextBlock Grid.Row="2" Margin="0,16,0,0" FontSize="12" Foreground="#596879" Text="Windows 預覽版 · RGB 模式不容許縮放或有損壓縮 · 請先校驗實際 RDP 畫面"/>
+  </Grid>
+</Window>

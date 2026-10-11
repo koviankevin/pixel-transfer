@@ -1,0 +1,37 @@
+name: Windows build and tests
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Test C# transport core
+        run: dotnet run --project tests/PixelTransfer.Tests -c Release
+      - name: Publish self-contained Windows x64 app
+        run: dotnet publish src/PixelTransfer.Windows -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o artifacts/PixelTransfer-win-x64
+      - name: Test WPF display and native screen capture
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath './artifacts/PixelTransfer-win-x64/PixelTransfer.exe' -ArgumentList '--self-test', 'windows-smoke.txt' -Wait -PassThru
+          if (Test-Path windows-smoke.txt) { Get-Content windows-smoke.txt }
+          if ($process.ExitCode -ne 0) { throw "Windows smoke test failed: $($process.ExitCode)" }
+      - name: Include user instructions
+        run: Copy-Item README.md artifacts/PixelTransfer-win-x64/README.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PixelTransfer-win-x64
+          path: artifacts/PixelTransfer-win-x64
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-test-results
+          path: windows-smoke.txt

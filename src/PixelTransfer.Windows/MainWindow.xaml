@@ -27,14 +27,15 @@
       </TabItem>
       <TabItem Header="  接收檔案  ">
         <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
-          <TextBlock Text="框選 RDP 內的資料圖" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
-          <TextBlock Text="包含整張資料圖與三個定位點。接收期間維持位置不動、避免遮擋；目前框選工具使用主螢幕。" Foreground="#596879"/>
-          <WrapPanel Margin="0,12,0,0"><Button x:Name="ReceiveButton" Content="框選並開始接收" Click="Receive_Click"/><Button x:Name="StopButton" Content="停止" IsEnabled="False" Click="Stop_Click"/><Button x:Name="ImportButton" Content="匯入截圖…" Click="Import_Click"/></WrapPanel>
+          <TextBlock Text="自動尋找 RDP 內的資料圖" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <TextBlock Text="將 RDP 放在主螢幕，讓完整資料圖與三個定位點可見。找到後只讀取圖像區域，移動後會重新尋找；請保持 1:1 顯示。" Foreground="#596879"/>
+          <WrapPanel Margin="0,12,0,0"><Button x:Name="ReceiveButton" Content="自動尋找並接收" Click="Receive_Click"/><Button x:Name="ManualReceiveButton" Content="手動框選接收" Click="ManualReceive_Click"/><Button x:Name="StopButton" Content="停止" IsEnabled="False" Click="Stop_Click"/><Button x:Name="ImportButton" Content="匯入截圖…" Click="Import_Click"/></WrapPanel>
           <ProgressBar x:Name="ReceiveProgress" Height="16" Maximum="100" Margin="0,16,0,8"/>
           <TextBlock x:Name="ReceiveStatus" Text="尚未開始接收。" Margin="0,0,0,22"/>
           <TextBlock Text="解密密碼"/><PasswordBox x:Name="ReceivePassword"/>
           <Button x:Name="SaveButton" Content="解密並儲存檔案…" HorizontalAlignment="Left" IsEnabled="False" Click="Save_Click"/>
           <TextBlock Text="收齊後才會驗證及解密。漏讀的分片會在下一輪補齊；密碼錯誤可重新輸入，不必再接收。" Foreground="#596879" Margin="0,12,0,0"/>
+          <TextBlock Text="自動搜尋會讀取主螢幕畫面；截圖僅在記憶體處理，程式不會儲存或上傳接收截圖。可改用手動框選限制讀取範圍。" Foreground="#596879" Margin="0,12,0,0"/>
         </StackPanel></ScrollViewer>
       </TabItem>
       <TabItem Header="  RDP 校驗  ">

@@ -42,6 +42,9 @@ for (int turn = 0; turn < 4; turn++)
         Array.Fill(background.Pixels, (byte)100);
         for (int y = 0; y < rotated.Height; y++) Buffer.BlockCopy(rotated.Pixels, y * rotated.Width * 3, background.Pixels, ((y + 53) * background.Width + 37) * 3, rotated.Width * 3);
         Assert(FrameCodec.Read(background)?.Payload.SequenceEqual(sample.Payload) == true);
+        var tracker = new FrameTracker();
+        Assert(tracker.Read(_ => background, new(-100, -200, background.Width, background.Height)) != null);
+        Assert(tracker.Bounds == new FrameBounds(-63, -147, rotated.Width, rotated.Height));
     });
 Test("Missing marker rejected", () => {
     var image = FrameCodec.Render(sample); image.FillRect(0, 0, 64, 64, 255, 255, 255);
@@ -73,5 +76,61 @@ Test("Upscaled pixels rejected", () => {
     for (int y = 0; y < scaled.Height; y++) for (int x = 0; x < scaled.Width; x++)
         Buffer.BlockCopy(image.Pixels, ((y / 2) * image.Width + x / 2) * 3, scaled.Pixels, (y * scaled.Width + x) * 3, 3);
     Assert(FrameCodec.Read(scaled) == null);
+});
+var desktop = new FrameBounds(-100, 30, 1500, 900);
+var smallPacket = TransferPacket.Split(smallEnvelope, new(640, 360))[0];
+var otherPacket = TransferPacket.Split(envelope, new(640, 360))[0];
+RgbImage Scene(params (TransferPacket Packet, int X, int Y)[] frames)
+{
+    var result = new RgbImage(desktop.Width, desktop.Height);
+    Array.Fill(result.Pixels, (byte)100);
+    foreach (var (packet, x, y) in frames)
+    {
+        var frame = FrameCodec.Render(packet);
+        for (int row = 0; row < frame.Height; row++)
+            Buffer.BlockCopy(frame.Pixels, row * frame.Width * 3, result.Pixels, ((row + y) * result.Width + x) * 3, frame.Width * 3);
+    }
+    return result;
+}
+RgbImage screen = Scene((smallPacket, 40, 70));
+var captures = new List<FrameBounds>();
+RgbImage Capture(FrameBounds bounds)
+{
+    captures.Add(bounds);
+    var result = new RgbImage(bounds.Width, bounds.Height);
+    for (int row = 0; row < bounds.Height; row++)
+        Buffer.BlockCopy(screen.Pixels, ((row + bounds.Y - desktop.Y) * screen.Width + bounds.X - desktop.X) * 3,
+            result.Pixels, row * bounds.Width * 3, bounds.Width * 3);
+    return result;
+}
+Test("Auto receiver finds, crops, and reacquires moved frame", () => {
+    var tracker = new FrameTracker();
+    Assert(tracker.Read(Capture, desktop) != null && captures[^1] == desktop);
+    Assert(tracker.Bounds == new FrameBounds(-60, 100, 640, 360));
+    captures.Clear();
+    Assert(tracker.Read(Capture, desktop) != null && captures.Count == 1 && captures[0] == tracker.Bounds);
+    screen = Scene((smallPacket, 710, 400)); captures.Clear();
+    Assert(tracker.Read(Capture, desktop) != null && captures.Count == 2 && captures[^1] == desktop);
+    Assert(tracker.Bounds == new FrameBounds(610, 430, 640, 360));
+});
+Test("Auto receiver preserves identity across disappearance and ignores other transfers", () => {
+    screen = Scene((smallPacket, 40, 70)); var tracker = new FrameTracker();
+    Assert(tracker.Read(Capture, desktop) != null);
+    screen = Scene(); Assert(tracker.Read(Capture, desktop) == null && tracker.Bounds == null);
+    screen = Scene((otherPacket, 40, 70)); Assert(tracker.Read(Capture, desktop) == null);
+    screen = Scene((otherPacket, 40, 70), (smallPacket, 760, 450));
+    Assert(tracker.Read(Capture, desktop)?.TransferId.SequenceEqual(smallPacket.TransferId) == true);
+});
+Test("Auto receiver rejects ambiguous initial screen without locking", () => {
+    var tracker = new FrameTracker(); screen = Scene((smallPacket, 40, 70), (otherPacket, 760, 450));
+    Reject(() => tracker.Read(Capture, desktop)); Assert(tracker.Bounds == null);
+    screen = Scene((otherPacket, 40, 70));
+    Assert(tracker.Read(Capture, desktop)?.TransferId.SequenceEqual(otherPacket.TransferId) == true);
+});
+Test("Auto receiver rejects damaged packet before locking", () => {
+    var tracker = new FrameTracker(); screen = Scene((smallPacket, 40, 70));
+    screen.Pixels[((70 + 104) * screen.Width + 40 + 100) * 3] ^= 1;
+    Assert(tracker.Read(Capture, desktop) == null && tracker.Bounds == null);
+    screen = Scene((otherPacket, 40, 70)); Assert(tracker.Read(Capture, desktop) != null);
 });
 Console.WriteLine($"{passed} tests passed.");

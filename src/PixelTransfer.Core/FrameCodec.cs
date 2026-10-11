@@ -1,6 +1,7 @@
 namespace PixelTransfer.Core;
 
-public sealed record LocatedFrame(FrameSize Size, byte[] Bytes);
+public readonly record struct FrameBounds(int X, int Y, int Width, int Height);
+public sealed record LocatedFrame(FrameSize Size, byte[] Bytes, FrameBounds Bounds);
 public sealed record ProbeResult(FrameSize Size, int ChangedChannels, int ChangedPixels, int MaxError)
 {
     public bool Passed => ChangedChannels == 0;
@@ -148,7 +149,7 @@ public static class FrameCodec
                             int src = ((top + sy) * image.Width + left + sx) * 3, dst = (y * size.DataWidth + x) * 3;
                             data[dst] = image.Pixels[src]; data[dst + 1] = image.Pixels[src + 1]; data[dst + 2] = image.Pixels[src + 2];
                         }
-                    yield return new LocatedFrame(size, data);
+                    yield return new LocatedFrame(size, data, new(left, top, pw, ph));
                 }
     }
 }

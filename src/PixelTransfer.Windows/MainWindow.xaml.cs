@@ -113,7 +113,7 @@ public partial class MainWindow : Window
     }
     private void SetReceiving(bool active)
     {
-        ReceiveButton.IsEnabled = ImportButton.IsEnabled = !active; StopButton.IsEnabled = active;
+        ReceiveButton.IsEnabled = ManualReceiveButton.IsEnabled = ImportButton.IsEnabled = !active; StopButton.IsEnabled = active;
         CheckScreenButton.IsEnabled = CheckFileButton.IsEnabled = !active;
     }
     private void Progress()
@@ -123,24 +123,34 @@ public partial class MainWindow : Window
         TaskbarItemInfo.ProgressValue = ReceiveProgress.Value / 100;
         ReceiveStatus.Text = collector.Total == 0 ? "尚未找到有效資料圖。請保留三點、使用 1:1 顯示，並先執行 RDP 校驗。" : $"已收到 {collector.Count} / {collector.Total} 張；重複圖像會忽略。";
     }
-    private async void Receive_Click(object sender, RoutedEventArgs e)
+    private async void Receive_Click(object sender, RoutedEventArgs e) => await ReceiveAsync(true);
+    private async void ManualReceive_Click(object sender, RoutedEventArgs e) => await ReceiveAsync(false);
+    private async Task ReceiveAsync(bool automatic)
     {
         if (receiving != null) return;
         try
         {
-            var area = SelectArea();
-            if (area == null) return;
+            CaptureArea? area = automatic ? null : SelectArea();
+            if (!automatic && area == null) return;
+            var tracker = new FrameTracker();
             collector = new(); receivedEnvelope = null; SaveButton.IsEnabled = false;
             receiving = new CancellationTokenSource(); var token = receiving.Token;
             SetReceiving(true); WindowState = WindowState.Minimized; Show();
+            ReceiveStatus.Text = automatic ? "正在主螢幕尋找資料圖…" : "正在讀取框選區域…";
             await Task.Delay(300, token);
             while (!collector.Complete)
             {
                 token.ThrowIfCancellationRequested();
-                var packet = await Task.Run(() => FrameCodec.Read(NativeScreen.Capture(area.Value)), token);
+                var desktop = NativeScreen.PrimaryArea();
+                var packet = await Task.Run(() => automatic
+                    ? tracker.Read(b => NativeScreen.Capture(new(b.X, b.Y, b.Width, b.Height)),
+                        new(desktop.X, desktop.Y, desktop.Width, desktop.Height))
+                    : FrameCodec.Read(NativeScreen.Capture(area!.Value)), token);
                 if (packet != null) collector.Add(packet);
                 Progress();
-                if (!collector.Complete) await Task.Delay(200, token);
+                if (automatic && tracker.Bounds == null)
+                    ReceiveStatus.Text += " 正在主螢幕重新尋找同一傳輸，請讓完整資料圖可見。";
+                if (!collector.Complete) await Task.Delay(automatic && tracker.Bounds == null ? 750 : 200, token);
             }
             receivedEnvelope = collector.Assemble(); SaveButton.IsEnabled = true;
             ReceiveStatus.Text = "已收齊並通過傳輸校驗。輸入密碼後，按「解密並儲存檔案」。";

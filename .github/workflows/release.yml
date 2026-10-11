@@ -41,5 +41,5 @@ jobs:
         run: |
           if (!(Test-Path artifacts/PixelTransfer-win-x64/PixelTransfer.exe)) { throw 'Missing executable' }
           Compress-Archive -Path artifacts/PixelTransfer-win-x64/* -DestinationPath PixelTransfer-win-x64.zip
-          gh release create v0.1.0-preview PixelTransfer-win-x64.zip --prerelease --target $env:SOURCE_SHA --title 'Pixel Transfer 0.1.0 — Windows preview' --notes-file .github/release-notes.txt
+          gh release create v0.1.1-preview PixelTransfer-win-x64.zip --prerelease --target $env:SOURCE_SHA --title 'Pixel Transfer 0.1.1 — Automatic receive' --notes-file .github/release-notes.txt
           if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }

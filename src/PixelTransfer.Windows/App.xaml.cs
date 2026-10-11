@@ -11,7 +11,7 @@ public partial class App : Application
         {
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
             string path = e.Args.Length > 1 ? e.Args[1] : "windows-smoke.txt";
-            try { await WindowsSmoke.Run(); File.WriteAllText(path, "PASS WPF startup, PNG round trip, physical-pixel playback and GDI screen capture.\n"); Shutdown(0); }
+            try { await WindowsSmoke.Run(); File.WriteAllText(path, "PASS WPF startup, PNG round trip, physical-pixel playback, GDI screen capture, automatic detection and moved-window reacquisition.\n"); Shutdown(0); }
             catch (Exception ex) { File.WriteAllText(path, ex.ToString()); Shutdown(1); }
             return;
         }

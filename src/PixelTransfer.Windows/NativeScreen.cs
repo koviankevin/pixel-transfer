@@ -30,6 +30,7 @@ internal static class NativeScreen
     [DllImport("gdi32.dll")] private static extern bool DeleteDC(nint dc);
     [DllImport("gdi32.dll", SetLastError = true)] private static extern bool BitBlt(nint dst, int x, int y, int width, int height, nint src, int sx, int sy, uint op);
 
+    public static CaptureArea PrimaryArea() => new(0, 0, GetSystemMetrics(0), GetSystemMetrics(1));
     public static CaptureArea WorkArea()
     {
         if (SystemParametersInfo(0x0030, 0, out var rect, 0)) return new(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);

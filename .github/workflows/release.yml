@@ -1,0 +1,45 @@
+name: Publish tested Windows preview
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Successful Windows build run ID
+        required: true
+        type: string
+permissions:
+  contents: write
+  actions: read
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify successful build provenance
+        id: source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.run_id }}
+        run: |
+          if ($env:RUN_ID -notmatch '^\d+$') { throw 'Invalid run ID' }
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:RUN_ID" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Could not inspect build run' }
+          if ($run.conclusion -ne 'success' -or $run.path -ne '.github/workflows/windows.yml' -or $run.head_repository.full_name -ne $env:GITHUB_REPOSITORY -or $run.head_branch -ne 'main') { throw 'Expected successful main-branch Windows build' }
+          "sha=$($run.head_sha)" >> $env:GITHUB_OUTPUT
+      - uses: actions/download-artifact@v4
+        with:
+          name: PixelTransfer-win-x64
+          path: artifacts/PixelTransfer-win-x64
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Package and publish preview
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          if (!(Test-Path artifacts/PixelTransfer-win-x64/PixelTransfer.exe)) { throw 'Missing executable' }
+          Compress-Archive -Path artifacts/PixelTransfer-win-x64/* -DestinationPath PixelTransfer-win-x64.zip
+          gh release create v0.1.0-preview PixelTransfer-win-x64.zip --prerelease --target $env:SOURCE_SHA --title 'Pixel Transfer 0.1.0 — Windows preview' --notes-file .github/release-notes.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Release publishing failed' }

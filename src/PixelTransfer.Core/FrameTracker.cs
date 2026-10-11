@@ -16,6 +16,9 @@ public sealed class FrameTracker
         {
             var tracked = Search(capture(area), area);
             if (tracked != null) return tracked;
+            // A tracked frame can occupy the entire desktop. Its failed capture was
+            // already a full search; do not capture and inspect the same area twice.
+            if (area == desktop) { Bounds = null; return null; }
         }
         Bounds = null;
         return Search(capture(desktop), desktop);
@@ -44,3 +47,4 @@ public sealed class FrameTracker
         return match;
     }
 }
+

@@ -1,0 +1,189 @@
+{
+  "runtime": ".NET 10.0.0",
+  "os": "Ubuntu 24.04.3 LTS",
+  "cpu_count": 8,
+  "iterations": 20,
+  "warmups": 3,
+  "results": [
+    {
+      "name": "desktop-1920",
+      "p50_ms": 6.4316,
+      "p95_ms": 8.9846,
+      "max_ms": 10.0181,
+      "cpu_ms_per_call": 6.4345,
+      "allocated_bytes_per_call": 2079160,
+      "captures_per_call": 0
+    },
+    {
+      "name": "decoys-3-1920",
+      "p50_ms": 6.9843,
+      "p95_ms": 10.2784,
+      "max_ms": 10.5564,
+      "cpu_ms_per_call": 7.708,
+      "allocated_bytes_per_call": 2078589,
+      "captures_per_call": 0
+    },
+    {
+      "name": "decoys-12-1920",
+      "p50_ms": 26.4343,
+      "p95_ms": 37.6778,
+      "max_ms": 40.08,
+      "cpu_ms_per_call": 32.32915,
+      "allocated_bytes_per_call": 14697949,
+      "captures_per_call": 0
+    },
+    {
+      "name": "decoys-24-1920",
+      "p50_ms": 499.5198,
+      "p95_ms": 550.1502,
+      "max_ms": 553.6446,
+      "cpu_ms_per_call": 513.81065,
+      "allocated_bytes_per_call": 278027882,
+      "captures_per_call": 0
+    },
+    {
+      "name": "scaled-decoys-24-1920",
+      "p50_ms": 9.2899,
+      "p95_ms": 10.3594,
+      "max_ms": 10.3668,
+      "cpu_ms_per_call": 9.29785,
+      "allocated_bytes_per_call": 7898173,
+      "captures_per_call": 0
+    },
+    {
+      "name": "desktop-3840",
+      "p50_ms": 24.5067,
+      "p95_ms": 26.7744,
+      "max_ms": 27.4099,
+      "cpu_ms_per_call": 26.2387,
+      "allocated_bytes_per_call": 8303656,
+      "captures_per_call": 0
+    },
+    {
+      "name": "decoys-3-3840",
+      "p50_ms": 22.6759,
+      "p95_ms": 25.9736,
+      "max_ms": 26.1106,
+      "cpu_ms_per_call": 23.084899999999998,
+      "allocated_bytes_per_call": 8303469,
+      "captures_per_call": 0
+    },
+    {
+      "name": "decoys-12-3840",
+      "p50_ms": 229.7421,
+      "p95_ms": 251.737,
+      "max_ms": 253.0185,
+      "cpu_ms_per_call": 236.85275000000001,
+      "allocated_bytes_per_call": 123458229,
+      "captures_per_call": 0
+    },
+    {
+      "name": "decoys-24-3840",
+      "p50_ms": 2391.4476,
+      "p95_ms": 2496.5774,
+      "max_ms": 2598.7831,
+      "cpu_ms_per_call": 2404.45385,
+      "allocated_bytes_per_call": 1235779389,
+      "captures_per_call": 0
+    },
+    {
+      "name": "scaled-decoys-24-3840",
+      "p50_ms": 25.2318,
+      "p95_ms": 27.2903,
+      "max_ms": 27.7019,
+      "cpu_ms_per_call": 25.4908,
+      "allocated_bytes_per_call": 14132565,
+      "captures_per_call": 0
+    },
+    {
+      "name": "valid-with-21-decoys",
+      "p50_ms": 69.7975,
+      "p95_ms": 74.8174,
+      "max_ms": 81.1741,
+      "cpu_ms_per_call": 71.21225,
+      "allocated_bytes_per_call": 43753221,
+      "captures_per_call": 0
+    },
+    {
+      "name": "native-short",
+      "p50_ms": 1.5348,
+      "p95_ms": 2.093,
+      "max_ms": 3.8696,
+      "cpu_ms_per_call": 1.69335,
+      "allocated_bytes_per_call": 530517,
+      "captures_per_call": 0
+    },
+    {
+      "name": "native-full",
+      "p50_ms": 1.6067,
+      "p95_ms": 1.8477,
+      "max_ms": 1.9345,
+      "cpu_ms_per_call": 1.64845,
+      "allocated_bytes_per_call": 788685,
+      "captures_per_call": 0
+    },
+    {
+      "name": "native-full-rotated",
+      "p50_ms": 1.6752,
+      "p95_ms": 2.1547,
+      "max_ms": 4.5782,
+      "cpu_ms_per_call": 1.8814499999999998,
+      "allocated_bytes_per_call": 788685,
+      "captures_per_call": 0
+    },
+    {
+      "name": "scaled-full-2x",
+      "p50_ms": 3.082,
+      "p95_ms": 3.6365,
+      "max_ms": 3.8229,
+      "cpu_ms_per_call": 3.1626000000000003,
+      "allocated_bytes_per_call": 1464453,
+      "captures_per_call": 0
+    },
+    {
+      "name": "dark-connected-4k",
+      "p50_ms": 141.7893,
+      "p95_ms": 151.4298,
+      "max_ms": 165.2964,
+      "cpu_ms_per_call": 144.82345,
+      "allocated_bytes_per_call": 8327877,
+      "captures_per_call": 0
+    },
+    {
+      "name": "damaged-with-21-decoys",
+      "p50_ms": 75.6819,
+      "p95_ms": 101.3857,
+      "max_ms": 111.0256,
+      "cpu_ms_per_call": 80.73295,
+      "allocated_bytes_per_call": 43753301,
+      "captures_per_call": 0
+    },
+    {
+      "name": "continuous-tracked",
+      "p50_ms": 1.726,
+      "p95_ms": 1.9108,
+      "max_ms": 2.5411,
+      "cpu_ms_per_call": 1.7498,
+      "allocated_bytes_per_call": 1221877,
+      "captures_per_call": 1
+    },
+    {
+      "name": "continuous-search-miss",
+      "p50_ms": 1012.1851,
+      "p95_ms": 1094.4473,
+      "max_ms": 1118.955,
+      "cpu_ms_per_call": 1018.2778500000001,
+      "allocated_bytes_per_call": 536226716,
+      "captures_per_call": 1
+    },
+    {
+      "name": "loss-and-reacquisition-cycle",
+      "p50_ms": 152.8191,
+      "p95_ms": 176.7758,
+      "max_ms": 190.7323,
+      "cpu_ms_per_call": 158.69925,
+      "allocated_bytes_per_call": 110847428,
+      "captures_per_call": 3
+    }
+  ]
+}

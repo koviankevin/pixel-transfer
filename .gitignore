@@ -1,0 +1,22 @@
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.env.*
+.DS_Store
+Thumbs.db
+
+# Local transfer inputs, generated frames, screenshots and restored files.
+*.zip
+*.bin
+frames*/
+rgb-frames*/
+screenshots/
+restored*
+my-probe.png
+rdp-test.png
+rdp-probe.png
+local-rdp-screenshot.png
+example-frame.png

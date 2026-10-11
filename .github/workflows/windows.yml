@@ -32,6 +32,8 @@ jobs:
           Copy-Item tests/PixelTransfer.Stress/*.csproj .baseline/tests/PixelTransfer.Stress
           dotnet run --project .baseline/tests/PixelTransfer.Stress -c Release -- 20 artifacts/search-baseline.json
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Interleave baseline and current core in one process
+        run: dotnet run --project tests/PixelTransfer.Stress -c Release -- --compare-core .baseline/src/PixelTransfer.Core/bin/Release/net10.0/PixelTransfer.Core.dll 30 artifacts/search-paired.json
       - name: Summarize search measurements
         shell: pwsh
         run: |
@@ -42,6 +44,14 @@ jobs:
           foreach ($row in $after.results) {
             $old = $before.results | Where-Object name -eq $row.name
             "| $($row.name) | $([math]::Round($old.p50_ms, 3)) | $([math]::Round($row.p50_ms, 3)) | $([math]::Round($old.p95_ms, 3)) | $([math]::Round($row.p95_ms, 3)) | $($old.allocated_bytes_per_call) | $($row.allocated_bytes_per_call) |" >> $env:GITHUB_STEP_SUMMARY
+          }
+          $paired = Get-Content artifacts/search-paired.json -Raw | ConvertFrom-Json
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "### Paired controls (same process, alternating order)" >> $env:GITHUB_STEP_SUMMARY
+          "| Scene | Baseline p50 ms | Current p50 ms | Baseline p95 ms | Current p95 ms |" >> $env:GITHUB_STEP_SUMMARY
+          "|---|---:|---:|---:|---:|" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($row in $paired.results) {
+            "| $($row.name) | $([math]::Round($row.baseline_p50_ms, 3)) | $([math]::Round($row.current_p50_ms, 3)) | $([math]::Round($row.baseline_p95_ms, 3)) | $([math]::Round($row.current_p95_ms, 3)) |" >> $env:GITHUB_STEP_SUMMARY
           }
       - name: Publish self-contained Windows x64 app
         run: dotnet publish src/PixelTransfer.Windows -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o artifacts/PixelTransfer-win-x64

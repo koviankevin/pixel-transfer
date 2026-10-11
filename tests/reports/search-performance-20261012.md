@@ -11,7 +11,7 @@ Baseline: `v0.1.2-preview`, commit `44419172ad16b5f212442f34d1fcd909efd44901`.
 
 ## Initial local measurements (default tiered runtime)
 
-Ubuntu 24.04.3 LTS, x64, .NET SDK 10.0.100 / runtime 10.0.0, 8 exposed processors. Release builds; identical fixed-seed harness; 3 warmups and 20 measured calls per scene. Baseline and current benchmark processes were run sequentially, without concurrent core tests. Shared-host scheduling can affect tails; these values are samples, not service-level guarantees. Allocation units below are decimal MB. These checked-in JSON files describe the initial default-tiered local run. After the first Windows run showed tier-dependent shifts even in unchanged scan-only controls, the benchmark project was changed to disable tiered compilation for both versions. This affects only the benchmark executable; the final controlled Windows comparison is recorded in the PR and CI artifacts.
+Ubuntu 24.04.3 LTS, x64, .NET SDK 10.0.100 / runtime 10.0.0, 8 exposed processors. Release builds; identical fixed-seed harness; 3 warmups and 20 measured calls per scene. Baseline and current benchmark processes were run sequentially, without concurrent core tests. Shared-host scheduling can affect tails; these values are samples, not service-level guarantees. Allocation units below are decimal MB. The search-linux-baseline/current JSON files describe the initial default-tiered local run, before the final row-copy optimization (PR commit 5864e17fd350c80aa88586c4fa3eb0b76f39c1e9). After the first Windows run showed batch-dependent shifts even in unchanged scan-only controls, the benchmark project was changed to disable tiered compilation for both versions. This affects only the benchmark executable; the final controlled Windows comparison is recorded in the PR and CI artifacts.
 
 | Scene | Baseline p50 ms | Current p50 ms | Baseline p95 ms | Current p95 ms | Baseline MB/call | Current MB/call |
 |---|---:|---:|---:|---:|---:|---:|
@@ -51,3 +51,30 @@ All measured calls produced the expected packet count and exact payload/ID. No f
 - Actual RDP capture/compression, display changes during capture, long-duration desktop use and company workstations have not been exercised. No real secret data or external workstation was used.
 
 Reproduction and measurement definitions: [stress harness README](../PixelTransfer.Stress/README.md).
+
+## Final paired local controls
+
+To control host-load differences between separate batches, the harness now loads
+both Core assemblies in one process and alternates call order, with identical
+immutable images and five warmups. Validation and reflection stay outside timing.
+The final implementation also uses row copies for unrotated native packets and
+row-based pixel extraction for rotations, removing per-pixel division/modulo.
+The complete 55-test Release suite passed again after this final optimization.
+
+30 measured pairs, same Linux SDK/runtime as above; tiered compilation disabled.
+The corresponding raw data is `search-linux-paired.json`.
+
+| Scene | Baseline p50 ms | Final p50 ms | Baseline p95 ms | Final p95 ms |
+|---|---:|---:|---:|---:|
+| desktop-4k | 23.887 | 24.220 | 33.530 | 33.962 |
+| scaled-decoys-24-4k | 26.268 | 23.424 | 29.889 | 26.207 |
+| native-full | 1.575 | 1.206 | 2.000 | 2.891 |
+| native-full-rotated | 1.710 | 1.718 | 2.530 | 2.186 |
+| scaled-full-2x | 2.884 | 2.771 | 3.614 | 3.047 |
+| valid-with-21-decoys | 69.499 | 9.000 | 75.152 | 10.333 |
+
+The paired scan-only control is comparable; full native median latency improves,
+rotation and 2x restoration remain comparable, and cluttered valid-frame searches
+improve substantially. Tail noise remains visible and is not hidden or used as an
+absolute CI gate. Windows runs this same paired comparison and uploads
+`search-paired.json`; see the PR for the final verified run and Windows numbers.

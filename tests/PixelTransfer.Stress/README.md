@@ -71,3 +71,20 @@ detectable amid arbitrarily many decoys. The full image still needs to be scanne
 and a large dark connected component still incurs flood-fill work. CRC is a
 transport corruption check; only AES-GCM authenticates the decrypted file. Passing
 synthetic tests or Windows smoke tests is not proof of real RDP compatibility.
+
+## Paired control comparison
+
+Long separate runs can experience different CPU frequency or host load even with
+the same JIT policy. CI additionally loads the built original Core DLL into an
+isolated AssemblyLoadContext, then alternates original/current `Inspect` calls on
+the exact same immutable synthetic pixels in one process. Both calls use compiled
+delegates; reflection, image creation and result validation are outside timing.
+Five warmups and 30 measured pairs cover scan-only controls, scaled decoys and
+native/full/rotated/scaled valid packets. `search-paired.json` records both p50/p95
+and allocation counts, plus the baseline DLL hash. Prefer these paired controls
+when investigating small regressions; separate-run timings alone cannot establish
+that a sub-millisecond or host-load-sensitive difference is caused by the change.
+
+```sh
+dotnet run --project tests/PixelTransfer.Stress -c Release -- --compare-core /path/to/original/PixelTransfer.Core.dll 30 artifacts/search-paired.json
+```

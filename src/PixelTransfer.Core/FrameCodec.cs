@@ -157,13 +157,35 @@ public static partial class FrameCodec
 
                     void Copy(byte[] destination)
                     {
-                        for (int p = 0; p < (destination.Length + 2) / 3; p++)
+                        int rowBytes = size.DataWidth * 3;
+                        for (int row = 0, dst = 0; dst < destination.Length; row++)
                         {
-                            var (sx, sy) = RgbImage.SourceCoordinate(64 + p % size.DataWidth,
-                                104 + p / size.DataWidth, pw, ph, turns);
-                            int src = ((top + sy) * image.Width + left + sx) * 3;
-                            for (int c = 0; c < 3 && p * 3 + c < destination.Length; c++)
-                                destination[p * 3 + c] = image.Pixels[src + c];
+                            int count = Math.Min(rowBytes, destination.Length - dst);
+                            if (turns == 0)
+                            {
+                                Buffer.BlockCopy(image.Pixels, ((top + 104 + row) * image.Width + left + 64) * 3,
+                                    destination, dst, count);
+                            }
+                            else
+                            {
+                                int x = 0;
+                                for (; x < count / 3; x++)
+                                {
+                                    var (sx, sy) = RgbImage.SourceCoordinate(64 + x, 104 + row, pw, ph, turns);
+                                    int src = ((top + sy) * image.Width + left + sx) * 3, offset = dst + x * 3;
+                                    destination[offset] = image.Pixels[src];
+                                    destination[offset + 1] = image.Pixels[src + 1];
+                                    destination[offset + 2] = image.Pixels[src + 2];
+                                }
+                                // A packet may end partway through an RGB triple.
+                                if (count % 3 != 0)
+                                {
+                                    var (sx, sy) = RgbImage.SourceCoordinate(64 + x, 104 + row, pw, ph, turns);
+                                    int src = ((top + sy) * image.Width + left + sx) * 3;
+                                    Buffer.BlockCopy(image.Pixels, src, destination, dst + x * 3, count % 3);
+                                }
+                            }
+                            dst += count;
                         }
                     }
                     yield return new LocatedFrame(size, data, new(left, top, pw, ph));

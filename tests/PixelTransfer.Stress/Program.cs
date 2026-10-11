@@ -4,6 +4,13 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
+if (args.Length > 0 && args[0] == "--compare-core")
+{
+    if (args.Length != 4) throw new ArgumentException("--compare-core baseline.dll iterations output.json");
+    PairedComparison.Run(args[1], int.Parse(args[2], CultureInfo.InvariantCulture), args[3]);
+    return;
+}
+
 int iterations = args.Length > 0 ? int.Parse(args[0], CultureInfo.InvariantCulture) : 20;
 if (iterations < 2 || iterations > 1000) throw new ArgumentOutOfRangeException(nameof(iterations));
 string? output = args.Length > 1 ? args[1] : null;

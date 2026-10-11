@@ -14,6 +14,7 @@ import transfer as t
 import rgbframe
 from probe import measure
 from desktop import fit_size, resolve_size
+import markers
 
 
 class ErrorCorrectionTests(unittest.TestCase):
@@ -243,6 +244,67 @@ class VariableSizeTests(unittest.TestCase):
         for invalid in ('bad', '100x100', '10000x10000'):
             with self.assertRaises(ValueError):
                 resolve_size(invalid)
+
+
+class OrientationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.data = random.Random(71).randbytes(30000)
+        cls.envelope = t.encrypt(cls.data, 'orientation')
+        cls.images = {
+            'rgb': t.render_packet(next(t.packets(cls.envelope, 'rgb', (1280, 720)))),
+            'color16': t.render_packet(next(t.packets(cls.envelope))),
+        }
+
+    def check(self, image, mode):
+        collector = t.Collector()
+        t.scan(image, collector, mode)
+        self.assertEqual(t.decrypt(collector.assemble(), 'orientation'), self.data)
+
+    def test_three_markers_and_blank_bottom_right(self):
+        for image in self.images.values():
+            self.assertEqual(len(markers.candidates(image, native=True)), 3)
+            corner = image.crop((image.width - 64, image.height - 64, image.width, image.height))
+            self.assertEqual(corner.getextrema(), ((255, 255),) * 3)
+
+    def test_every_quarter_turn_with_desktop_background(self):
+        for mode, image in self.images.items():
+            for operation in (None, Image.Transpose.ROTATE_90, Image.Transpose.ROTATE_180, Image.Transpose.ROTATE_270):
+                with self.subTest(mode=mode, operation=operation):
+                    oriented = image if operation is None else image.transpose(operation)
+                    desktop = Image.new('RGB', (oriented.width + 160, oriented.height + 180), (100, 110, 120))
+                    desktop.paste(oriented, (53, 79))
+                    self.check(desktop, mode)
+
+    def test_scaled_rotated_color16(self):
+        image = self.images['color16'].resize((1440, 810), Image.Resampling.BILINEAR)
+        self.check(image.transpose(Image.Transpose.ROTATE_90), 'color16')
+
+    def test_two_markers_are_not_sufficient(self):
+        for mode, image in self.images.items():
+            damaged = image.copy()
+            ImageDraw.Draw(damaged).rectangle((0, 0, 63, 63), fill='white')
+            collector = t.Collector()
+            t.scan(damaged, collector, mode)
+            self.assertFalse(collector.complete)
+
+    def test_legacy_four_marker_images(self):
+        for mode, image in self.images.items():
+            legacy = image.copy()
+            x, y = image.width - 36, image.height - 36
+            draw = ImageDraw.Draw(legacy)
+            draw.rectangle((x - 20, y - 20, x + 19, y + 19), fill='black')
+            draw.rectangle((x - 12, y - 12, x + 11, y + 11), fill='white')
+            draw.rectangle((x - 6, y - 6, x + 5, y + 5), fill=(48, 240, 240))
+            self.check(legacy, mode)
+            self.check(legacy.transpose(Image.Transpose.ROTATE_270), mode)
+
+    def test_rotated_probe_reports_original_dimensions(self):
+        size = (1280, 720)
+        image = rgbframe.render(rgbframe.probe_data(size), size).transpose(Image.Transpose.ROTATE_90)
+        result = measure(image)
+        self.assertEqual((result['width'], result['height']), size)
+        self.assertEqual(result['changed_channels'], 0)
 
 
 if __name__ == '__main__':

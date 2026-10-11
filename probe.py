@@ -49,7 +49,7 @@ def main():
     with Image.open(args.screenshot) as source:
         result = measure(source.convert('RGB'))
     if result is None:
-        print('找不到原尺寸四角定位點。請確認 RDP 顯示為 1:1，沒有縮放或裁掉定位點。')
+        print('找不到原尺寸三點定位圖像。請確認 RDP 顯示為 1:1，沒有縮放或裁掉定位點。')
         return 2
     print(f"辨識尺寸：{result['width']} × {result['height']}")
     print(f"RGB 通道不符：{result['changed_channels']:,}/{result['channels']:,}")

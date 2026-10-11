@@ -1,15 +1,14 @@
 """16-color 1920x1080 screenshot transport with calibration and RS interleaving.
 
-Geometry supports upright screenshots, translation, and axis-aligned scaling.
-Camera perspective and screen rotation are deliberately outside version 1.
+Geometry supports translation, axis-aligned scaling, and quarter-turn rotation.
+Camera perspective and arbitrary-angle rotation are outside this prototype.
 """
-import itertools
 
 import numpy as np
 from PIL import Image, ImageDraw
-from scipy import ndimage
 
 import ecc
+import markers
 
 WIDTH, HEIGHT = 1920, 1080
 CELL = 4
@@ -17,7 +16,7 @@ GRID_W, GRID_H = 448, 224
 DATA_X, DATA_Y = 64, 104
 BLOCKS = (GRID_W * GRID_H // 2) // 255
 FRAME_BYTES = BLOCKS * 223
-MARKERS = [(36, 36), (1884, 36), (36, 1044), (1884, 1044)]
+MARKERS = [(36, 36), (1884, 36), (36, 1044)]
 PALETTE = np.array([
     (48, 48, 48), (240, 240, 240), (48, 48, 240), (48, 240, 48),
     (240, 48, 48), (48, 240, 240), (240, 48, 240), (240, 240, 48),
@@ -56,48 +55,6 @@ def reference_canvas():
     return image
 
 
-def locate(image, native=False):
-    # Search at bounded resolution; dark components isolate the black marker rings.
-    factor = 1.0 if native else min(1.0, 1200 / max(image.size))
-    small = image.resize((round(image.width * factor), round(image.height * factor)), Image.Resampling.BILINEAR)
-    rgb = np.asarray(small.convert('RGB'))
-    labels, _ = ndimage.label(np.max(rgb, axis=2) < 28)
-    candidates = []
-    for number, region in enumerate(ndimage.find_objects(labels), 1):
-        if region is None:
-            continue
-        ys, xs = region
-        w, h = xs.stop - xs.start, ys.stop - ys.start
-        if not 8 <= w <= 100 or not 8 <= h <= 100 or not 0.65 <= w / h <= 1.5:
-            continue
-        mask = labels[region] == number
-        if not 0.40 < mask.mean() < 0.85:
-            continue
-        # The center is white or colored, not part of the outer black ring.
-        if mask[h // 3:2 * h // 3, w // 3:2 * w // 3].mean() > 0.15:
-            continue
-        candidates.append(((xs.start + xs.stop) / (2 * factor),
-                           (ys.start + ys.stop) / (2 * factor), w, h))
-    if len(candidates) > 24:
-        raise ValueError('定位候選過多，請縮小擷取範圍')
-    for group in itertools.combinations(candidates, 4):
-        ordered = sorted(group, key=lambda p: p[1])
-        tl, tr = sorted(ordered[:2])
-        bl, br = sorted(ordered[2:])
-        dx, dy = tr[0] - tl[0], bl[1] - tl[1]
-        if dx < 300 or dy < 150 or not 1.3 < dx / dy < 2.4:
-            continue
-        tolerance = max(3, min(tl[2], tl[3]) / factor * 0.15)
-        if max(abs(tl[1] - tr[1]), abs(bl[1] - br[1]), abs(tl[0] - bl[0]), abs(tr[0] - br[0])) > tolerance:
-            continue
-        sx, sy = dx / 1848, dy / 1008
-        if any(abs(p[2] / factor / (40 * sx) - 1) > 0.25 or
-               abs(p[3] / factor / (40 * sy) - 1) > 0.25 for p in group):
-            continue
-        left, top = tl[0] - 36 * sx, tl[1] - 36 * sy
-        yield (left, top, left + WIDTH * sx, top + HEIGHT * sy)
-
-
 def read_aligned(image):
     rgb = np.asarray(image.convert('RGB'), dtype=np.float32)
     observed = np.array([rgb[44:68, 460 + i * 64:484 + i * 64].mean(axis=(0, 1)) for i in range(16)])
@@ -115,10 +72,11 @@ def read_aligned(image):
 
 
 def read(image):
-    for bounds in locate(image):
+    for bounds, turns, size in markers.layouts(image, fixed_size=(WIDTH, HEIGHT)):
         try:
             # Bounded EXTENT also handles subpixel marker estimates at screenshot edges.
-            aligned = image.convert('RGB').transform((WIDTH, HEIGHT), Image.Transform.EXTENT, bounds, Image.Resampling.BILINEAR)
-            yield read_aligned(aligned)
+            physical_size = size[::-1] if turns % 2 else size
+            aligned = image.convert('RGB').transform(physical_size, Image.Transform.EXTENT, bounds, Image.Resampling.BILINEAR)
+            yield read_aligned(markers.upright(aligned, turns))
         except ValueError:
             continue

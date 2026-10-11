@@ -29,7 +29,7 @@ def select_region():
     canvas = tk.Canvas(root, bg='gray', cursor='crosshair', highlightthickness=0)
     canvas.pack(fill='both', expand=True)
     canvas.create_text(30, 30, anchor='nw', fill='white',
-                       text='拖曳框選完整傳輸圖像（包含四角）；Esc 取消', font=('', 20))
+                       text='拖曳框選完整傳輸圖像（包含三個定位點）；Esc 取消', font=('', 20))
     start, result = [], {}
     rectangle = canvas.create_rectangle(0, 0, 0, 0, outline='red', width=4)
 
@@ -104,7 +104,7 @@ def main():
             missing = [str(i + 1) for i in range(collector.total) if i not in collector.parts]
             print('缺少分片（從 1 起算）：' + ', '.join(missing[:30]))
         else:
-            print('找不到可用的傳輸圖像；請確認模式，保留四角與白邊。RGB 模式要求像素完全不變。')
+            print('找不到可用的傳輸圖像；請確認模式，保留三個定位點與白邊。RGB 模式要求像素完全不變。')
         return 2
     envelope = collector.assemble()
     password = getpass.getpass('解密密碼：')

@@ -1,0 +1,64 @@
+{
+  "runtime": ".NET 10.0.0",
+  "os": "Ubuntu 24.04.3 LTS",
+  "iterations": 30,
+  "warmups": 5,
+  "order": "alternating in the same process",
+  "baseline_sha256": "A96C64EC42B7AEA8B337728404E1CADDCCF1AE25B88A64DB18BE008155AE6AFD",
+  "results": [
+    {
+      "name": "desktop-4k",
+      "baseline_p50_ms": 23.8872,
+      "current_p50_ms": 24.2201,
+      "baseline_p95_ms": 33.5303,
+      "current_p95_ms": 33.9617,
+      "baseline_bytes": 8303547,
+      "current_bytes": 8303820
+    },
+    {
+      "name": "scaled-decoys-24-4k",
+      "baseline_p50_ms": 26.2681,
+      "current_p50_ms": 23.4239,
+      "baseline_p95_ms": 29.8892,
+      "current_p95_ms": 26.2074,
+      "baseline_bytes": 14145721,
+      "current_bytes": 8331203
+    },
+    {
+      "name": "native-full",
+      "baseline_p50_ms": 1.5751,
+      "current_p50_ms": 1.2065,
+      "baseline_p95_ms": 1.9995,
+      "current_p95_ms": 2.8909,
+      "baseline_bytes": 788776,
+      "current_bytes": 772967
+    },
+    {
+      "name": "native-full-rotated",
+      "baseline_p50_ms": 1.7104,
+      "current_p50_ms": 1.718,
+      "baseline_p95_ms": 2.5301,
+      "current_p95_ms": 2.1856,
+      "baseline_bytes": 789018,
+      "current_bytes": 772696
+    },
+    {
+      "name": "scaled-full-2x",
+      "baseline_p50_ms": 2.8843,
+      "current_p50_ms": 2.7714,
+      "baseline_p95_ms": 3.6136,
+      "current_p95_ms": 3.0466,
+      "baseline_bytes": 1464544,
+      "current_bytes": 1464080
+    },
+    {
+      "name": "valid-with-21-decoys",
+      "baseline_p50_ms": 69.4991,
+      "current_p50_ms": 8.9999,
+      "baseline_p95_ms": 75.1518,
+      "current_p95_ms": 10.3333,
+      "baseline_bytes": 44015264,
+      "current_bytes": 4248800
+    }
+  ]
+}

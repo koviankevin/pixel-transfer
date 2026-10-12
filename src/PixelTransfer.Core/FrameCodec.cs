@@ -125,7 +125,7 @@ public static partial class FrameCodec
     }
 
     public static IEnumerable<LocatedFrame> Locate(RgbImage image) => LocateNative(image, FindMarkers(image));
-    private static IEnumerable<LocatedFrame> LocateNative(RgbImage image, List<Point> markers)
+    private static IEnumerable<LocatedFrame> LocateNative(RgbImage image, List<Point> markers, bool packetOnly = false)
     {
         var points = markers.Where(p => p.Width == 40 && p.Height == 40).ToArray();
         foreach (var elbow in points)
@@ -142,15 +142,54 @@ public static partial class FrameCodec
                     if (size.Width < 640 || size.Width > 3840 || size.Height < 360 || size.Height > 2160) continue;
                     int left = (int)Math.Min(elbow.X, horizontal.X) - 36, top = (int)Math.Min(elbow.Y, vertical.Y) - 36;
                     if (left < 0 || top < 0 || left + pw > image.Width || top + ph > image.Height) continue;
-                    byte[] data = new byte[size.DataBytes];
-                    for (int y = 0; y < size.DataHeight; y++)
-                        for (int x = 0; x < size.DataWidth; x++)
+                    // Inspect only needs a validated packet (or a probe signature), not the
+                    // full data capacity of every geometrically plausible rectangle.
+                    byte[] data;
+                    if (packetOnly)
+                    {
+                        byte[] header = new byte[36];
+                        Copy(header);
+                        int length = PacketByteCount(header, size);
+                        if (length == 0) data = header; // preserve invalid/calibration diagnostics
+                        else { data = new byte[length]; Copy(data); }
+                    }
+                    else { data = new byte[size.DataBytes]; Copy(data); }
+
+                    void Copy(byte[] destination)
+                    {
+                        int rowBytes = size.DataWidth * 3;
+                        for (int row = 0, dst = 0; dst < destination.Length; row++)
                         {
-                            var (sx, sy) = RgbImage.SourceCoordinate(x + 64, y + 104, pw, ph, turns);
-                            int src = ((top + sy) * image.Width + left + sx) * 3, dst = (y * size.DataWidth + x) * 3;
-                            data[dst] = image.Pixels[src]; data[dst + 1] = image.Pixels[src + 1]; data[dst + 2] = image.Pixels[src + 2];
+                            int count = Math.Min(rowBytes, destination.Length - dst);
+                            if (turns == 0)
+                            {
+                                Buffer.BlockCopy(image.Pixels, ((top + 104 + row) * image.Width + left + 64) * 3,
+                                    destination, dst, count);
+                            }
+                            else
+                            {
+                                int x = 0;
+                                for (; x < count / 3; x++)
+                                {
+                                    var (sx, sy) = RgbImage.SourceCoordinate(64 + x, 104 + row, pw, ph, turns);
+                                    int src = ((top + sy) * image.Width + left + sx) * 3, offset = dst + x * 3;
+                                    destination[offset] = image.Pixels[src];
+                                    destination[offset + 1] = image.Pixels[src + 1];
+                                    destination[offset + 2] = image.Pixels[src + 2];
+                                }
+                                // A packet may end partway through an RGB triple.
+                                if (count % 3 != 0)
+                                {
+                                    var (sx, sy) = RgbImage.SourceCoordinate(64 + x, 104 + row, pw, ph, turns);
+                                    int src = ((top + sy) * image.Width + left + sx) * 3;
+                                    Buffer.BlockCopy(image.Pixels, src, destination, dst + x * 3, count % 3);
+                                }
+                            }
+                            dst += count;
                         }
+                    }
                     yield return new LocatedFrame(size, data, new(left, top, pw, ph));
                 }
     }
 }
+

@@ -2,6 +2,7 @@ name: Windows build and tests
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,6 +17,42 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Test C# transport core
         run: dotnet run --project tests/PixelTransfer.Tests -c Release
+      - name: Measure synthetic search stress
+        run: dotnet run --project tests/PixelTransfer.Stress -c Release -- 20 artifacts/search-current.json
+      - name: Check out 0.1.2 baseline for identical stress harness
+        uses: actions/checkout@v4
+        with:
+          ref: 44419172ad16b5f212442f34d1fcd909efd44901
+          path: .baseline
+      - name: Measure baseline with the same scenes
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force .baseline/tests/PixelTransfer.Stress | Out-Null
+          Copy-Item tests/PixelTransfer.Stress/*.cs .baseline/tests/PixelTransfer.Stress
+          Copy-Item tests/PixelTransfer.Stress/*.csproj .baseline/tests/PixelTransfer.Stress
+          dotnet run --project .baseline/tests/PixelTransfer.Stress -c Release -- 20 artifacts/search-baseline.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Interleave baseline and current core in one process
+        run: dotnet run --project tests/PixelTransfer.Stress -c Release -- --compare-core .baseline/src/PixelTransfer.Core/bin/Release/net10.0/PixelTransfer.Core.dll 30 artifacts/search-paired.json
+      - name: Summarize search measurements
+        shell: pwsh
+        run: |
+          $before = Get-Content artifacts/search-baseline.json -Raw | ConvertFrom-Json
+          $after = Get-Content artifacts/search-current.json -Raw | ConvertFrom-Json
+          "| Scene | Baseline p50 ms | Current p50 ms | Baseline p95 ms | Current p95 ms | Baseline bytes/call | Current bytes/call |" >> $env:GITHUB_STEP_SUMMARY
+          "|---|---:|---:|---:|---:|---:|---:|" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($row in $after.results) {
+            $old = $before.results | Where-Object name -eq $row.name
+            "| $($row.name) | $([math]::Round($old.p50_ms, 3)) | $([math]::Round($row.p50_ms, 3)) | $([math]::Round($old.p95_ms, 3)) | $([math]::Round($row.p95_ms, 3)) | $($old.allocated_bytes_per_call) | $($row.allocated_bytes_per_call) |" >> $env:GITHUB_STEP_SUMMARY
+          }
+          $paired = Get-Content artifacts/search-paired.json -Raw | ConvertFrom-Json
+          "" >> $env:GITHUB_STEP_SUMMARY
+          "### Paired controls (same process, alternating order)" >> $env:GITHUB_STEP_SUMMARY
+          "| Scene | Baseline p50 ms | Current p50 ms | Baseline p95 ms | Current p95 ms |" >> $env:GITHUB_STEP_SUMMARY
+          "|---|---:|---:|---:|---:|" >> $env:GITHUB_STEP_SUMMARY
+          foreach ($row in $paired.results) {
+            "| $($row.name) | $([math]::Round($row.baseline_p50_ms, 3)) | $([math]::Round($row.current_p50_ms, 3)) | $([math]::Round($row.baseline_p95_ms, 3)) | $([math]::Round($row.current_p95_ms, 3)) |" >> $env:GITHUB_STEP_SUMMARY
+          }
       - name: Publish self-contained Windows x64 app
         run: dotnet publish src/PixelTransfer.Windows -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=None -p:DebugSymbols=false -o artifacts/PixelTransfer-win-x64
       - name: Test WPF display and native screen capture
@@ -34,4 +71,7 @@ jobs:
         if: always()
         with:
           name: windows-test-results
-          path: windows-smoke.txt
+          path: |
+            windows-smoke.txt
+            artifacts/search-*.json
+

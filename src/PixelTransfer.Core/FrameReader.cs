@@ -18,13 +18,16 @@ public sealed record FrameInspection(IReadOnlyList<DetectedPacket> Packets, Fram
 
 public static partial class FrameCodec
 {
+    private static readonly FrameSize[] StandardSizes = Enumerable.Range(40, 201)
+        .Select(n => new FrameSize(n * 16, n * 9)).ToArray();
+
     public static FrameInspection Inspect(RgbImage image)
     {
         var markers = FindMarkers(image);
         var packets = new List<DetectedPacket>();
         var status = markers.Count == 0 ? FrameReadStatus.NoMarkers : FrameReadStatus.IncompleteMarkers;
         var nativeBounds = new HashSet<FrameBounds>();
-        foreach (var frame in LocateNative(image, markers))
+        foreach (var frame in LocateNative(image, markers, packetOnly: true))
         {
             status = FrameReadStatus.InvalidData;
             var packet = TransferPacket.Parse(frame.Bytes, frame.Size);
@@ -53,9 +56,12 @@ public static partial class FrameCodec
                     int estimatedH = (int)Math.Round(Math.Abs(dy) / approxY + 72);
                     var estimated = turns % 2 == 0 ? new FrameSize(estimatedW, estimatedH) : new FrameSize(estimatedH, estimatedW);
                     // The UI emits 16:9 frames. Also try the measured size for custom frames.
-                    var sizes = Enumerable.Range(40, 201).Select(n => new FrameSize(n * 16, n * 9)).Prepend(estimated).Distinct();
-                    foreach (var size in sizes)
+                    // Try the estimate once, then the fixed supported sizes without
+                    // rebuilding a LINQ pipeline and Distinct set for every marker triple.
+                    for (int candidate = -1; candidate < StandardSizes.Length; candidate++)
                     {
+                        var size = candidate < 0 ? estimated : StandardSizes[candidate];
+                        if (candidate >= 0 && size == estimated) continue;
                         if (size.Width < 640 || size.Height < 360 || size.Width > 3840 || size.Height > 2160) continue;
                         int pw = turns % 2 == 0 ? size.Width : size.Height, ph = turns % 2 == 0 ? size.Height : size.Width;
                         double sx = Math.Abs(dx) / (pw - 72), sy = Math.Abs(dy) / (ph - 72);
@@ -76,6 +82,23 @@ public static partial class FrameCodec
                     }
                 }
         return new(packets, packets.Count > 0 ? FrameReadStatus.Success : status);
+    }
+
+    // A header gate only bounds work; Parse still verifies the original CRC before
+    // accepting any packet, and CryptoEnvelope still authenticates the assembled file.
+    private static int PacketByteCount(ReadOnlySpan<byte> header, FrameSize size)
+    {
+        if (header.Length < 36 || !header[..4].SequenceEqual("PCF1"u8) ||
+            BinaryPrimitives.ReadUInt16LittleEndian(header[32..]) != size.Width ||
+            BinaryPrimitives.ReadUInt16LittleEndian(header[34..]) != size.Height) return 0;
+        int length = BinaryPrimitives.ReadInt32LittleEndian(header[28..]);
+        int index = BinaryPrimitives.ReadInt32LittleEndian(header[20..]);
+        int total = BinaryPrimitives.ReadInt32LittleEndian(header[24..]);
+        int capacity = size.PayloadBytes;
+        if (length < 1 || length > capacity || total < 1 || index < 0 || index >= total ||
+            total > (CryptoEnvelope.MaxEnvelopeBytes + capacity - 1) / capacity ||
+            (index < total - 1 && length != capacity)) return 0;
+        return length + TransferPacket.Overhead;
     }
 
     private static bool IsProbeHeader(ReadOnlySpan<byte> bytes)
@@ -107,18 +130,10 @@ public static partial class FrameCodec
                 if (integerScale && !integerPhases.Add(((int)Math.Floor(left + sx * 0.5 + ox), (int)Math.Floor(top + sy * 0.5 + oy)))) continue;
                 Sample(header, ox, oy);
                 if (IsProbeHeader(header)) { probe = true; return null; }
-                if (!header.AsSpan(0, 4).SequenceEqual("PCF1"u8) ||
-                    BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(32)) != size.Width ||
-                    BinaryPrimitives.ReadUInt16LittleEndian(header.AsSpan(34)) != size.Height) continue;
-                int length = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(28));
-                int index = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(20));
-                int total = BinaryPrimitives.ReadInt32LittleEndian(header.AsSpan(24));
-                int capacity = size.PayloadBytes;
-                if (length < 1 || length > capacity || total < 1 || index < 0 || index >= total ||
-                    total > (CryptoEnvelope.MaxEnvelopeBytes + capacity - 1) / capacity ||
-                    (index < total - 1 && length != capacity)) continue;
-                byte[] bytes = buffer != null && buffer.Length == length + TransferPacket.Overhead
-                    ? buffer : buffer = new byte[length + TransferPacket.Overhead];
+                int byteCount = PacketByteCount(header, size);
+                if (byteCount == 0) continue;
+                byte[] bytes = buffer != null && buffer.Length == byteCount
+                    ? buffer : buffer = new byte[byteCount];
                 Sample(bytes, ox, oy);
                 var packet = TransferPacket.Parse(bytes, size);
                 if (packet != null) return packet;
@@ -143,3 +158,4 @@ public static partial class FrameCodec
         }
     }
 }
+

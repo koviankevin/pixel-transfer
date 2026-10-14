@@ -81,7 +81,7 @@ jobs:
       - name: Include user instructions
         shell: pwsh
         run: |
-          Copy-Item README.md artifacts/PixelTransfer-win-x64/README.md
+          (Get-Content README.md -Raw).Replace("(docs/RDP-VALIDATION.md)", "(RDP-VALIDATION.md)") | Set-Content artifacts/PixelTransfer-win-x64/README.md
           Copy-Item docs/RDP-VALIDATION.md artifacts/PixelTransfer-win-x64/RDP-VALIDATION.md
           Copy-Item scripts/New-RdpTestInput.ps1 artifacts/PixelTransfer-win-x64/New-RdpTestInput.ps1
       - uses: actions/upload-artifact@v4

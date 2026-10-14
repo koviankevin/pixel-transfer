@@ -326,7 +326,7 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) != true) return;
         var session = BeginDiagnostics(DiagnosticMode.ProbeFile);
         // Reuse the busy guard while decoding so receive/probe operations cannot replace the session.
-        receiving = new CancellationTokenSource(); SetReceiving(true);
+        receiving = new CancellationTokenSource(); var token = receiving.Token; SetReceiving(true);
         try
         {
             var result = await Task.Run(() =>
@@ -338,8 +338,10 @@ public partial class MainWindow : Window
                     Stopwatch.GetElapsedTime(start).TotalMilliseconds, fromFile: true);
                 return measured;
             });
+            token.ThrowIfCancellationRequested();
             ShowProbeResult(result); session.Finish(DiagnosticEnd.Completed);
         }
+        catch (OperationCanceledException) { session.Finish(DiagnosticEnd.Stopped); }
         catch (Exception ex) { session.Finish(DiagnosticEnd.Error); Error(ex); }
         finally { receiving?.Dispose(); receiving = null; SetReceiving(false); UpdateDiagnosticStatus(); }
     }

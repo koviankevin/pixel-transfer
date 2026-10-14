@@ -101,8 +101,9 @@ internal static class WindowsSmoke
                     {
                         diagnostics.Finish(DiagnosticEnd.Completed);
                         Directory.CreateDirectory("artifacts");
-                        diagnostics.Export("artifacts/diagnostics-windows-smoke.json");
-                        using var report = System.Text.Json.JsonDocument.Parse(File.ReadAllText("artifacts/diagnostics-windows-smoke.json"));
+                        string reportPath = Path.Combine("artifacts", "diagnostics-windows-smoke-" + Guid.NewGuid().ToString("N") + ".json");
+                        diagnostics.Export(reportPath);
+                        using var report = System.Text.Json.JsonDocument.Parse(File.ReadAllText(reportPath));
                         if (report.RootElement.GetProperty("RealRdpValidation").GetString() != "not-verified")
                             throw new InvalidOperationException("Local smoke must not claim real RDP validation.");
                         return;

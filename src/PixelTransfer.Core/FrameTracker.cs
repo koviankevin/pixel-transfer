@@ -1,9 +1,24 @@
+using System.Diagnostics;
+
 namespace PixelTransfer.Core;
 
 // Retains decoded packets and transfer geometry, never a desktop screenshot.
 public sealed class FrameTracker
 {
     private byte[]? transferId;
+    private bool everLocked;
+    public long TrackingLosses { get; private set; }
+    public long Reacquisitions { get; private set; }
+    public long FullSearches { get; private set; }
+    public Action<FrameInspection, FrameBounds, double, bool>? InspectionObserved { get; set; }
+
+    private TransferPacket? CaptureAndSearch(Func<FrameBounds, RgbImage> capture, FrameBounds area, bool fullSearch)
+    {
+        long start = Stopwatch.GetTimestamp();
+        var packet = Search(capture(area), area);
+        InspectionObserved?.Invoke(Inspection, area, Stopwatch.GetElapsedTime(start).TotalMilliseconds, fullSearch);
+        return packet;
+    }
     public FrameBounds? Bounds { get; private set; }
     public FrameInspection Inspection { get; private set; } = new([], FrameReadStatus.NoMarkers);
     public double Scale { get; private set; } = 1;
@@ -14,14 +29,22 @@ public sealed class FrameTracker
             (long)area.X + area.Width <= (long)desktop.X + desktop.Width &&
             (long)area.Y + area.Height <= (long)desktop.Y + desktop.Height)
         {
-            var tracked = Search(capture(area), area);
+            var tracked = CaptureAndSearch(capture, area, false);
             if (tracked != null) return tracked;
             // A tracked frame can occupy the entire desktop. Its failed capture was
             // already a full search; do not capture and inspect the same area twice.
-            if (area == desktop) { Bounds = null; return null; }
+            if (area == desktop) { TrackingLosses++; Bounds = null; return null; }
         }
+        if (Bounds != null) TrackingLosses++;
         Bounds = null;
-        return Search(capture(desktop), desktop);
+        FullSearches++;
+        var found = CaptureAndSearch(capture, desktop, true);
+        if (found != null)
+        {
+            if (everLocked) Reacquisitions++;
+            everLocked = true;
+        }
+        return found;
     }
 
     private TransferPacket? Search(RgbImage image, FrameBounds origin)
@@ -47,4 +70,3 @@ public sealed class FrameTracker
         return match;
     }
 }
-

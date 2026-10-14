@@ -46,7 +46,19 @@
           <ComboBox x:Name="ProbeSize" SelectedIndex="0"><ComboBoxItem Content="1280 × 720" Tag="1280,720"/><ComboBoxItem Content="1600 × 900" Tag="1600,900"/><ComboBoxItem Content="1920 × 1080" Tag="1920,1080"/><ComboBoxItem Content="依此電腦可用空間估算" Tag="auto"/></ComboBox>
           <WrapPanel><Button Content="遠端：顯示校驗圖" Click="ShowProbe_Click"/><Button Content="儲存校驗圖…" Click="ExportProbe_Click"/></WrapPanel>
           <WrapPanel><Button x:Name="CheckScreenButton" Content="本地：框選並校驗" Click="CheckScreen_Click"/><Button x:Name="CheckFileButton" Content="檢查已存截圖…" Click="CheckFile_Click"/></WrapPanel>
+          <TextBlock Text="連續校驗：固定框選區域，每次量測後間隔 1 秒。停止或完成後匯出；開始新操作會取代上次診斷。" Margin="0,12,0,0"/>
+          <ComboBox x:Name="ProbeDuration" SelectedIndex="0"><ComboBoxItem Content="1 分鐘" Tag="60"/><ComboBoxItem Content="10 分鐘" Tag="600"/><ComboBoxItem Content="60 分鐘" Tag="3600"/></ComboBox>
+          <WrapPanel><Button x:Name="RepeatProbeButton" Content="本地：連續校驗" Click="RepeatProbe_Click"/><Button x:Name="RepeatStopButton" Content="停止量測／接收" IsEnabled="False" Click="Stop_Click"/></WrapPanel>
           <Border Background="#EEF3F9" Padding="16" Margin="0,20,0,0"><TextBlock x:Name="ProbeStatus" Text="尚未校驗。RDP 請使用 1:1 顯示；PNG 無法修復遠端畫面已產生的失真。"/></Border>
+        </StackPanel></ScrollViewer>
+      </TabItem>
+      <TabItem Header="  診斷紀錄  ">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+          <TextBlock Text="匯出最近一次校驗或接收" FontSize="20" FontWeight="SemiBold"/>
+          <TextBlock Text="記錄解析度、主螢幕 DPI、定位／CRC 統計、重定位及時間。只保留最近 256 筆明細，累計數不受影響。" Margin="0,12,0,0"/>
+          <TextBlock Text="不包含畫面、傳輸內容、檔名、傳輸 ID、密碼、主機或帳號資訊；只在你按匯出時寫入本機，不會上傳。請先匯出，再開始下一次校驗或接收。" Margin="0,12,0,0"/>
+          <Button x:Name="DiagnosticExportButton" Content="匯出診斷 JSON…" HorizontalAlignment="Left" IsEnabled="False" Click="ExportDiagnostics_Click"/>
+          <TextBlock x:Name="DiagnosticStatus" Text="尚未記錄。請先執行 RDP 校驗、自動接收或手動接收。匯入資料截圖不列入此診斷。" Margin="0,16,0,0"/>
         </StackPanel></ScrollViewer>
       </TabItem>
     </TabControl>

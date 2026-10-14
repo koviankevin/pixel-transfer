@@ -15,8 +15,25 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Stamp diagnostic build provenance
+        shell: pwsh
+        env:
+          TESTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          "<Project><PropertyGroup><InformationalVersion>rdp-diagnostics+$env:TESTED_HEAD</InformationalVersion></PropertyGroup></Project>" | Set-Content Directory.Build.targets
       - name: Test C# transport core
         run: dotnet run --project tests/PixelTransfer.Tests -c Release
+      - name: Verify repeatable synthetic RDP fixture
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          ./scripts/New-RdpTestInput.ps1 -OutputPath artifacts/fixture.bin -SizeMiB 1 | Out-Null
+          if ((Get-Item artifacts/fixture.bin).Length -ne 1048576) { throw 'Wrong fixture size' }
+          if ((Get-FileHash artifacts/fixture.bin).Hash -ne '414CE6A756CB3274D0D33164315E89350D9963FF4B003AE9DB3CD2D3547D6DA5') { throw 'Fixture bytes changed' }
+          $rejected = $false
+          try { ./scripts/New-RdpTestInput.ps1 -OutputPath artifacts/fixture.bin -SizeMiB 1 | Out-Null } catch { $rejected = $true }
+          if (-not $rejected) { throw 'Fixture generator overwrote existing data' }
+          Remove-Item artifacts/fixture.bin
       - name: Measure synthetic search stress
         run: dotnet run --project tests/PixelTransfer.Stress -c Release -- 20 artifacts/search-current.json
       - name: Check out 0.1.2 baseline for identical stress harness
@@ -62,7 +79,11 @@ jobs:
           if (Test-Path windows-smoke.txt) { Get-Content windows-smoke.txt }
           if ($process.ExitCode -ne 0) { throw "Windows smoke test failed: $($process.ExitCode)" }
       - name: Include user instructions
-        run: Copy-Item README.md artifacts/PixelTransfer-win-x64/README.md
+        shell: pwsh
+        run: |
+          Copy-Item README.md artifacts/PixelTransfer-win-x64/README.md
+          Copy-Item docs/RDP-VALIDATION.md artifacts/PixelTransfer-win-x64/RDP-VALIDATION.md
+          Copy-Item scripts/New-RdpTestInput.ps1 artifacts/PixelTransfer-win-x64/New-RdpTestInput.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: PixelTransfer-win-x64
@@ -74,4 +95,4 @@ jobs:
           path: |
             windows-smoke.txt
             artifacts/search-*.json
-
+            artifacts/diagnostics-*.json

@@ -30,6 +30,22 @@ internal static class NativeScreen
     [DllImport("gdi32.dll")] private static extern bool DeleteDC(nint dc);
     [DllImport("gdi32.dll", SetLastError = true)] private static extern bool BitBlt(nint dst, int x, int y, int width, int height, nint src, int sx, int sy, uint op);
 
+    [DllImport("user32.dll")] private static extern nint MonitorFromPoint(Point point, uint flags);
+    [DllImport("shcore.dll")] private static extern int GetDpiForMonitor(nint monitor, int type, out uint x, out uint y);
+    public static DisplayMetrics PrimaryMetrics()
+    {
+        var area = PrimaryArea();
+        // All current capture modes use the primary monitor. Unknown DPI is never reported as 96.
+        try
+        {
+            if (GetDpiForMonitor(MonitorFromPoint(new Point { X = 0, Y = 0 }, 1), 0, out uint x, out uint y) == 0)
+                return new(area.Width, area.Height, x, y);
+        }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+        return new(area.Width, area.Height, null, null);
+    }
+
     public static CaptureArea PrimaryArea() => new(0, 0, GetSystemMetrics(0), GetSystemMetrics(1));
     public static CaptureArea WorkArea()
     {

@@ -21,7 +21,11 @@ public sealed record TransferPacket(byte[] TransferId, int Index, int Total, Fra
         return bytes;
     }
     public static TransferPacket? Parse(byte[] bytes, FrameSize detected)
+        => Parse(bytes, detected, out _);
+
+    public static TransferPacket? Parse(byte[] bytes, FrameSize detected, out bool crcFailed)
     {
+        crcFailed = false;
         if (bytes.Length < Overhead || !bytes.AsSpan(0, 4).SequenceEqual("PCF1"u8)) return null;
         int index = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(20));
         int total = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(24));
@@ -32,7 +36,8 @@ public sealed record TransferPacket(byte[] TransferId, int Index, int Total, Fra
         int maxPackets = (CryptoEnvelope.MaxEnvelopeBytes + capacity - 1) / capacity;
         if (index < 0 || total < 1 || index >= total || total > maxPackets || length < 1 || length > capacity || length > bytes.Length - Overhead) return null;
         if (index < total - 1 && length != capacity) return null;
-        if (Crc32(bytes.AsSpan(0, 36 + length)) != BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(36 + length))) return null;
+        if (Crc32(bytes.AsSpan(0, 36 + length)) != BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(36 + length)))
+        { crcFailed = true; return null; }
         return new TransferPacket(bytes.AsSpan(4, 16).ToArray(), index, total, size, bytes.AsSpan(36, length).ToArray());
     }
     public static IReadOnlyList<TransferPacket> Split(byte[] envelope, FrameSize size)

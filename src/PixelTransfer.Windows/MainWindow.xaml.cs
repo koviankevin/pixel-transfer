@@ -306,6 +306,7 @@ public partial class MainWindow : Window
             {
                 token.ThrowIfCancellationRequested();
                 ShowProbeResult(await MeasureScreenAsync(area.Value, session));
+                token.ThrowIfCancellationRequested();
                 if (!repeat || Stopwatch.GetElapsedTime(start).TotalSeconds >= seconds) break;
                 await Task.Delay(1000, token);
             } while (true);

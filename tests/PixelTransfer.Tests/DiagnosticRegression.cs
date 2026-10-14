@@ -26,6 +26,9 @@ internal static class DiagnosticRegression
             byte[] raw = packet.Serialize(); raw[36] ^= 1;
             var damaged = FrameCodec.Inspect(FrameCodec.RenderBytes(raw, size));
             Assert(damaged.HasFrameGeometry && damaged.CrcFailureObserved && damaged.Packets.Count == 0, "CRC not counted");
+            var scaled = FrameCodec.Inspect(SyntheticScenes.Scale(FrameCodec.RenderBytes(raw, size), 2));
+            Assert(scaled.HasFrameGeometry && scaled.CrcFailureObserved && scaled.Packets.Count == 0,
+                "Scaled restoration lost CRC diagnostic or accepted corruption");
             BinaryPrimitives.WriteInt32LittleEndian(raw.AsSpan(28), int.MaxValue);
             var header = FrameCodec.Inspect(FrameCodec.RenderBytes(raw, size));
             Assert(header.HasFrameGeometry && !header.CrcFailureObserved, "Invalid header mislabeled CRC");

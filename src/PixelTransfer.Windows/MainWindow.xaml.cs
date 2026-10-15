@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -16,6 +17,7 @@ public partial class MainWindow : Window
     private byte[]? receivedEnvelope;
     private bool sending;
     private bool closing;
+    private DiagnosticSession? diagnostics;
 
     public MainWindow()
     {
@@ -114,7 +116,9 @@ public partial class MainWindow : Window
     private void SetReceiving(bool active)
     {
         ReceiveButton.IsEnabled = ManualReceiveButton.IsEnabled = ImportButton.IsEnabled = !active; StopButton.IsEnabled = active;
-        CheckScreenButton.IsEnabled = CheckFileButton.IsEnabled = !active;
+        CheckScreenButton.IsEnabled = CheckFileButton.IsEnabled = RepeatProbeButton.IsEnabled = !active;
+        RepeatStopButton.IsEnabled = active;
+        DiagnosticExportButton.IsEnabled = !active && diagnostics != null;
     }
     private void Progress()
     {
@@ -128,11 +132,16 @@ public partial class MainWindow : Window
     private async Task ReceiveAsync(bool automatic)
     {
         if (receiving != null) return;
+        DiagnosticSession? session = null;
         try
         {
             CaptureArea? area = automatic ? null : SelectArea();
             if (!automatic && area == null) return;
+            session = BeginDiagnostics(automatic ? DiagnosticMode.AutomaticReceive : DiagnosticMode.ManualReceive);
             var tracker = new FrameTracker();
+            tracker.InspectionObserved = (inspection, bounds, ms, full) => session.RecordInspection(
+                inspection, NativeScreen.PrimaryMetrics(), bounds.Width, bounds.Height, ms,
+                full ? CaptureKind.FullSearch : CaptureKind.TrackedRegion);
             collector = new(); receivedEnvelope = null; SaveButton.IsEnabled = false;
             receiving = new CancellationTokenSource(); var token = receiving.Token;
             SetReceiving(true); WindowState = WindowState.Minimized; Show();
@@ -150,12 +159,17 @@ public partial class MainWindow : Window
                             new(desktop.X, desktop.Y, desktop.Width, desktop.Height));
                         return (Packet: found, Inspection: tracker.Inspection, Scale: tracker.Scale);
                     }
+                    long started = Stopwatch.GetTimestamp();
                     var inspection = FrameCodec.Inspect(NativeScreen.Capture(area!.Value));
+                    session.RecordInspection(inspection, NativeScreen.PrimaryMetrics(), area.Value.Width, area.Value.Height,
+                        Stopwatch.GetElapsedTime(started).TotalMilliseconds, CaptureKind.ManualRegion);
                     var first = inspection.Packets.FirstOrDefault();
                     return (Packet: first?.Packet, Inspection: inspection, Scale: first?.Scale ?? 1);
                 }, token);
                 var packet = result.Packet;
                 if (packet != null) collector.Add(packet);
+                session.RecordReceiveCycle(packet != null, collector.Count, collector.Total,
+                    tracker.TrackingLosses, tracker.Reacquisitions, tracker.FullSearches);
                 Progress();
                 if (packet == null)
                     ReceiveStatus.Text = (collector.Count > 0 ? $"已收到 {collector.Count} / {collector.Total} 張。" : "") +
@@ -165,13 +179,14 @@ public partial class MainWindow : Window
                 if (!collector.Complete) await Task.Delay(automatic && tracker.Bounds == null ? 750 : 200, token);
             }
             receivedEnvelope = collector.Assemble(); SaveButton.IsEnabled = true;
+            session.Finish(DiagnosticEnd.Completed);
             ReceiveStatus.Text = "已收齊並通過傳輸校驗。輸入密碼後，按「解密並儲存檔案」。";
         }
-        catch (OperationCanceledException) { ReceiveStatus.Text = "已停止；重新開始會清除接收進度。"; }
-        catch (Exception ex) { Error(ex); }
+        catch (OperationCanceledException) { session?.Finish(DiagnosticEnd.Stopped); ReceiveStatus.Text = "已停止；重新開始會清除接收進度。"; }
+        catch (Exception ex) { session?.Finish(DiagnosticEnd.Error); Error(ex); }
         finally
         {
-            receiving?.Dispose(); receiving = null; SetReceiving(false);
+            receiving?.Dispose(); receiving = null; SetReceiving(false); UpdateDiagnosticStatus();
             if (!closing) { Show(); WindowState = WindowState.Normal; Activate(); }
             TaskbarItemInfo.ProgressState = TaskbarItemProgressState.None;
         }
@@ -238,17 +253,97 @@ public partial class MainWindow : Window
             $"{result.Size} · 通道不符 {result.ChangedChannels:N0} / {result.Size.DataBytes:N0}\n受影響像素 {result.ChangedPixels:N0}；最大通道差值 {result.MaxError}\n" +
             (result.Passed ? "這一次校驗通過。建議多測幾次，再開始傳輸。" : "這一次未通過。請調整 RDP 縮放／畫質設定後再測。");
     }
-    private async void CheckScreen_Click(object sender, RoutedEventArgs e)
+    private DiagnosticSession BeginDiagnostics(DiagnosticMode mode)
     {
-        try { var area = SelectArea(); if (area == null) return; await Task.Delay(300); ShowProbeResult(await Task.Run(() => FrameCodec.Measure(NativeScreen.Capture(area.Value)))); }
+        diagnostics = new DiagnosticSession(mode);
+        DiagnosticExportButton.IsEnabled = false;
+        DiagnosticStatus.Text = "正在記錄本次操作；完成或停止後可匯出。上次結果已由本次取代。";
+        return diagnostics;
+    }
+    private void UpdateDiagnosticStatus()
+    {
+        if (diagnostics == null) return;
+        var report = diagnostics.Snapshot();
+        DiagnosticStatus.Text = $"{report.Mode} · {report.End} · {report.ElapsedMs / 1000:F1} 秒\n" +
+            $"定位 {report.Summary.LocatedSamples}/{report.Summary.Samples} 次擷取；CRC 失敗擷取 {report.Summary.CrcFailureSamples}；重新定位 {report.Summary.Reacquisitions} 次。\n" +
+            "此紀錄不會自動判定真實 RDP 已驗證。請搭配測試步驟記錄環境。";
+    }
+    private void ExportDiagnostics_Click(object sender, RoutedEventArgs e)
+    {
+        if (diagnostics == null || receiving != null) return;
+        var dialog = new SaveFileDialog { FileName = $"pixel-diagnostics-{DateTime.UtcNow:yyyyMMdd-HHmmss}.json", Filter = "JSON|*.json" };
+        if (dialog.ShowDialog(this) != true) return;
+        try { diagnostics.Export(dialog.FileName); DiagnosticStatus.Text += "\n診斷紀錄已匯出。"; }
         catch (Exception ex) { Error(ex); }
-        finally { if (!closing) { Show(); WindowState = WindowState.Normal; Activate(); } }
+    }
+    private async Task<ProbeResult?> MeasureScreenAsync(CaptureArea area, DiagnosticSession session)
+    {
+        return await Task.Run(() =>
+        {
+            long started = Stopwatch.GetTimestamp();
+            var result = FrameCodec.Measure(NativeScreen.Capture(area));
+            session.RecordProbe(result, NativeScreen.PrimaryMetrics(), area.Width, area.Height,
+                Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+            return result;
+        });
+    }
+    private async void CheckScreen_Click(object sender, RoutedEventArgs e) => await CheckScreenAsync(false);
+    private async void RepeatProbe_Click(object sender, RoutedEventArgs e) => await CheckScreenAsync(true);
+    private async Task CheckScreenAsync(bool repeat)
+    {
+        if (receiving != null) return;
+        DiagnosticSession? session = null;
+        try
+        {
+            int seconds = repeat ? int.Parse((string)((ComboBoxItem)ProbeDuration.SelectedItem).Tag) : 0;
+            var area = SelectArea(); if (area == null) return;
+            session = BeginDiagnostics(DiagnosticMode.ProbeScreen);
+            receiving = new CancellationTokenSource(); var token = receiving.Token;
+            SetReceiving(true); WindowState = WindowState.Minimized; Show();
+            await Task.Delay(300, token);
+            long start = Stopwatch.GetTimestamp();
+            do
+            {
+                token.ThrowIfCancellationRequested();
+                ShowProbeResult(await MeasureScreenAsync(area.Value, session));
+                token.ThrowIfCancellationRequested();
+                if (!repeat || Stopwatch.GetElapsedTime(start).TotalSeconds >= seconds) break;
+                await Task.Delay(1000, token);
+            } while (true);
+            session.Finish(DiagnosticEnd.Completed);
+        }
+        catch (OperationCanceledException) { session?.Finish(DiagnosticEnd.Stopped); }
+        catch (Exception ex) { session?.Finish(DiagnosticEnd.Error); Error(ex); }
+        finally
+        {
+            receiving?.Dispose(); receiving = null; SetReceiving(false); UpdateDiagnosticStatus();
+            if (!closing) { Show(); WindowState = WindowState.Normal; Activate(); }
+        }
     }
     private async void CheckFile_Click(object sender, RoutedEventArgs e)
     {
+        if (receiving != null) return;
         var dialog = new OpenFileDialog { Filter = "截圖|*.png;*.bmp;*.jpg;*.jpeg" };
         if (dialog.ShowDialog(this) != true) return;
-        try { ShowProbeResult(await Task.Run(() => FrameCodec.Measure(BitmapAdapter.Load(dialog.FileName)))); }
-        catch (Exception ex) { Error(ex); }
+        var session = BeginDiagnostics(DiagnosticMode.ProbeFile);
+        // Reuse the busy guard while decoding so receive/probe operations cannot replace the session.
+        receiving = new CancellationTokenSource(); var token = receiving.Token; SetReceiving(true);
+        try
+        {
+            var result = await Task.Run(() =>
+            {
+                long start = Stopwatch.GetTimestamp();
+                var image = BitmapAdapter.Load(dialog.FileName);
+                var measured = FrameCodec.Measure(image);
+                session.RecordProbe(measured, new(0, 0, null, null), image.Width, image.Height,
+                    Stopwatch.GetElapsedTime(start).TotalMilliseconds, fromFile: true);
+                return measured;
+            });
+            token.ThrowIfCancellationRequested();
+            ShowProbeResult(result); session.Finish(DiagnosticEnd.Completed);
+        }
+        catch (OperationCanceledException) { session.Finish(DiagnosticEnd.Stopped); }
+        catch (Exception ex) { session.Finish(DiagnosticEnd.Error); Error(ex); }
+        finally { receiving?.Dispose(); receiving = null; SetReceiving(false); UpdateDiagnosticStatus(); }
     }
 }

@@ -218,5 +218,5 @@ Test("Tracker crops a scaled frame and reports failed restoration", () => {
     Assert(tracker.Read(_ => lost, search) == null && tracker.Inspection.Status == FrameReadStatus.InvalidData);
 });
 passed += StressRegression.Run();
+passed += DiagnosticRegression.Run();
 Console.WriteLine($"{passed} tests passed.");
-

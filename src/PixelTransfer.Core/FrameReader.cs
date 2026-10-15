@@ -6,6 +6,9 @@ public enum FrameReadStatus { NoMarkers, IncompleteMarkers, InvalidData, Calibra
 public sealed record DetectedPacket(TransferPacket Packet, FrameBounds Bounds, double Scale);
 public sealed record FrameInspection(IReadOnlyList<DetectedPacket> Packets, FrameReadStatus Status)
 {
+    // Per captured image, not per candidate or sampling phase. Geometry alone is not valid data.
+    public bool HasFrameGeometry { get; init; }
+    public bool CrcFailureObserved { get; init; }
     public string Message => Status switch
     {
         FrameReadStatus.NoMarkers => "找不到定位點。請確認圖片在主螢幕、完整可見。",
@@ -23,6 +26,7 @@ public static partial class FrameCodec
 
     public static FrameInspection Inspect(RgbImage image)
     {
+        bool geometry = false, crcFailure = false;
         var markers = FindMarkers(image);
         var packets = new List<DetectedPacket>();
         var status = markers.Count == 0 ? FrameReadStatus.NoMarkers : FrameReadStatus.IncompleteMarkers;
@@ -30,7 +34,9 @@ public static partial class FrameCodec
         foreach (var frame in LocateNative(image, markers, packetOnly: true))
         {
             status = FrameReadStatus.InvalidData;
-            var packet = TransferPacket.Parse(frame.Bytes, frame.Size);
+            geometry = true;
+            var packet = TransferPacket.Parse(frame.Bytes, frame.Size, out bool badCrc);
+            crcFailure |= badCrc;
             if (packet != null)
             {
                 packets.Add(new(packet, frame.Bounds, 1));
@@ -72,8 +78,10 @@ public static partial class FrameCodec
                         int bx = Math.Max(0, (int)Math.Floor(left)), by = Math.Max(0, (int)Math.Floor(top));
                         var bounds = new FrameBounds(bx, by, Math.Min(image.Width, (int)Math.Ceiling(left + pw * sx)) - bx,
                             Math.Min(image.Height, (int)Math.Ceiling(top + ph * sy)) - by);
+                        geometry = true;
                         if (nativeBounds.Contains(bounds)) continue;
-                        var restored = TrySample(image, size, turns, left, top, sx, sy, out bool probe);
+                        var restored = TrySample(image, size, turns, left, top, sx, sy, out bool probe, out bool badSampleCrc);
+                        crcFailure |= badSampleCrc;
                         if (probe) status = FrameReadStatus.Calibration;
                         if (restored == null) continue;
                         packets.Add(new(restored, bounds, (sx + sy) / 2));
@@ -81,7 +89,8 @@ public static partial class FrameCodec
                         break;
                     }
                 }
-        return new(packets, packets.Count > 0 ? FrameReadStatus.Success : status);
+        return new(packets, packets.Count > 0 ? FrameReadStatus.Success : status)
+        { HasFrameGeometry = geometry, CrcFailureObserved = crcFailure };
     }
 
     // A header gate only bounds work; Parse still verifies the original CRC before
@@ -114,9 +123,10 @@ public static partial class FrameCodec
     }
 
     private static TransferPacket? TrySample(RgbImage image, FrameSize size, int turns,
-        double left, double top, double sx, double sy, out bool probe)
+        double left, double top, double sx, double sy, out bool probe, out bool crcFailure)
     {
         probe = false;
+        crcFailure = false;
         // Small phase offsets account for rounding at the finder edges. No byte correction:
         // only a packet whose original CRC validates can be returned.
         double[] phases = [0, 0.25, -0.25, 0.5, -0.5];
@@ -135,7 +145,8 @@ public static partial class FrameCodec
                 byte[] bytes = buffer != null && buffer.Length == byteCount
                     ? buffer : buffer = new byte[byteCount];
                 Sample(bytes, ox, oy);
-                var packet = TransferPacket.Parse(bytes, size);
+                var packet = TransferPacket.Parse(bytes, size, out bool badCrc);
+                crcFailure |= badCrc;
                 if (packet != null) return packet;
             }
         return null;
@@ -158,4 +169,3 @@ public static partial class FrameCodec
         }
     }
 }
-

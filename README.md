@@ -4,6 +4,8 @@
 
 這是 Windows x64 預覽版。高容量 RGB 傳輸要求 RDP 保持原始像素；請先執行下方的校驗。新 C# 格式不支援 Python 原型的資料圖，兩端都須更新。
 
+本專案採用 [MIT 授權](LICENSE)，允許商用、修改與散布；散布時須保留版權及授權聲明。
+
 ## 下載與執行
 
 從 [Releases](https://github.com/koviankevin/pixel-transfer/releases) 下載 `PixelTransfer-win-x64.zip`，在兩台 Windows 電腦解壓後執行 `PixelTransfer.exe`。發布包自帶 .NET 執行環境，不需另外安裝 Python 或 .NET。

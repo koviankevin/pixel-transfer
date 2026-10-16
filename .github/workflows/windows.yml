@@ -78,12 +78,13 @@ jobs:
           $process = Start-Process -FilePath './artifacts/PixelTransfer-win-x64/PixelTransfer.exe' -ArgumentList '--self-test', 'windows-smoke.txt' -Wait -PassThru
           if (Test-Path windows-smoke.txt) { Get-Content windows-smoke.txt }
           if ($process.ExitCode -ne 0) { throw "Windows smoke test failed: $($process.ExitCode)" }
-      - name: Include user instructions
+      - name: Include user instructions and license
         shell: pwsh
         run: |
           (Get-Content README.md -Raw).Replace("(docs/RDP-VALIDATION.md)", "(RDP-VALIDATION.md)") | Set-Content artifacts/PixelTransfer-win-x64/README.md
           Copy-Item docs/RDP-VALIDATION.md artifacts/PixelTransfer-win-x64/RDP-VALIDATION.md
           Copy-Item scripts/New-RdpTestInput.ps1 artifacts/PixelTransfer-win-x64/New-RdpTestInput.ps1
+          Copy-Item LICENSE artifacts/PixelTransfer-win-x64/LICENSE
       - uses: actions/upload-artifact@v4
         with:
           name: PixelTransfer-win-x64

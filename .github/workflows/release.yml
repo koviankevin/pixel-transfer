@@ -86,16 +86,9 @@ jobs:
           NOTES_FILE: ${{ inputs.notes_file }}
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($file in @('PixelTransfer.exe', 'README.md')) {
-            if (!(Test-Path -LiteralPath "artifacts/PixelTransfer-win-x64/$file" -PathType Leaf)) { throw "Missing $file" }
-          }
+          ./scripts/Assert-WindowsPackage.ps1 -PackagePath artifacts/PixelTransfer-win-x64 -SourceCommit $env:SOURCE_SHA
           Compress-Archive -Path artifacts/PixelTransfer-win-x64/* -DestinationPath PixelTransfer-win-x64.zip
-          $zip = [System.IO.Compression.ZipFile]::OpenRead((Join-Path $PWD 'PixelTransfer-win-x64.zip'))
-          try {
-            foreach ($file in @('PixelTransfer.exe', 'README.md')) {
-              if (!($zip.Entries | Where-Object { $_.FullName -eq $file -and $_.Length -gt 0 })) { throw "Missing or empty ZIP entry: $file" }
-            }
-          } finally { $zip.Dispose() }
+          ./scripts/Assert-WindowsPackage.ps1 -PackagePath artifacts/PixelTransfer-win-x64 -SourceCommit $env:SOURCE_SHA -ZipPath PixelTransfer-win-x64.zip
           $hash = (Get-FileHash PixelTransfer-win-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  PixelTransfer-win-x64.zip" | Set-Content PixelTransfer-win-x64.zip.sha256 -Encoding utf8NoBOM
           $notes = Get-Content -LiteralPath $env:NOTES_FILE -Raw

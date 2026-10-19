@@ -10,7 +10,15 @@
 
 從 [Releases](https://github.com/koviankevin/pixel-transfer/releases) 下載 `PixelTransfer-win-x64.zip`，在兩台 Windows 電腦解壓後執行 `PixelTransfer.exe`。發布包自帶 .NET 執行環境，不需另外安裝 Python 或 .NET。
 
-這個儲存庫是私有的，下載時需登入有權限的 GitHub 帳號。預覽版 EXE 未簽署程式碼簽章。也可以在 [Actions](https://github.com/koviankevin/pixel-transfer/actions) 下載成功建置的 `PixelTransfer-win-x64` 成品。
+這個儲存庫是公開的，任何人都可以查看原始碼，並直接下載已發布的 Release 附件，不需登入 GitHub。預覽版 EXE 未簽署程式碼簽章。
+
+也可以在 [Actions](https://github.com/koviankevin/pixel-transfer/actions) 下載成功建置的 `PixelTransfer-win-x64` 成品；GitHub 要求下載 Actions 成品時登入帳號，成品也有保存期限。Actions 成品可能包含尚未發布到 Release 的修改，請核對該次建置的來源提交與測試結果。
+
+### 授權與既有版本
+
+公開分享採用 MIT 授權；下載者可使用、修改、商用及再散布，但須保留版權與授權聲明。v0.1.0-preview 至 v0.1.3-preview 的既有 ZIP 未內附 `LICENSE`；再散布這些版本時，請一併附上[本專案的 MIT 授權聲明](https://github.com/koviankevin/pixel-transfer/blob/4a0a38374670c6c465a5e6264ff362c00c19970b/LICENSE)。原 ZIP、版本標籤及校驗值維持不變，不會因 README 或 main 更新而重新打包。
+
+後續 Windows 建置會附上 `LICENSE`。發布流程會在建立版本標籤前，確認成品及 ZIP 內的授權聲明與建置來源提交一致；缺少授權的舊成品不能直接作為新 Release 發布。
 
 ## 第一次使用：校驗 RDP
 

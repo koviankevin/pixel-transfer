@@ -14,6 +14,8 @@
 
 也可以在 [Actions](https://github.com/koviankevin/pixel-transfer/actions) 下載成功建置的 `PixelTransfer-win-x64` 成品；GitHub 要求下載 Actions 成品時登入帳號，成品也有保存期限。Actions 成品可能包含尚未發布到 Release 的修改，請核對該次建置的來源提交與測試結果。
 
+正在準備的 **0.1.4-preview** 包含診斷 JSON 匯出、MIT 授權檔，以及停止接收／匯入後丟棄尚在解析之圖片的修正。新操作會清除舊進度；停止後仍可重新接收。既有 0.1.3 Release 不會隨原始碼更新；請核對下載來源與版本。詳見 [0.1.4 版本說明](https://github.com/koviankevin/pixel-transfer/blob/main/.github/release-notes/v0.1.4-preview.md)。
+
 ### 授權與既有版本
 
 公開分享採用 MIT 授權；下載者可使用、修改、商用及再散布，但須保留版權與授權聲明。v0.1.0-preview 至 v0.1.3-preview 的既有 ZIP 未內附 `LICENSE`；再散布這些版本時，請一併附上[本專案的 MIT 授權聲明](https://github.com/koviankevin/pixel-transfer/blob/4a0a38374670c6c465a5e6264ff362c00c19970b/LICENSE)。原 ZIP、版本標籤及校驗值維持不變，不會因 README 或 main 更新而重新打包。
@@ -98,6 +100,8 @@ dotnet publish src/PixelTransfer.Windows -c Release -r win-x64 --self-contained 
 ```
 
 GitHub Actions 執行核心測試、Windows 建置與實際 WPF 視窗／GDI 擷取測試。後者也可在 Windows 以 `PixelTransfer.exe --self-test windows-smoke.txt` 執行。這些測試不等於使用者的真實 RDP 環境測試；不同 DPI、多螢幕、HDR、RDP 編碼設定仍須實機校驗。
+
+`--self-test` 亦涵蓋自動接收、手動接收與截圖匯入：在首張或最後一張圖片處理期間停止，確認不接納該張、不啟用儲存，並驗證同一視窗可重新收齊。單獨執行這六個情境可用 `PixelTransfer.exe --self-test-receive receive-smoke.txt`；測試透過相同的 WPF 接收流程使用合成圖片，不讀取使用者截圖。
 
 ## 格式
 

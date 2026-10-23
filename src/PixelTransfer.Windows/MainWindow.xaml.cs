@@ -18,9 +18,15 @@ public partial class MainWindow : Window
     private bool sending;
     private bool closing;
     private DiagnosticSession? diagnostics;
+    private readonly Func<CaptureArea, RgbImage> captureScreen;
+    private readonly Func<string, RgbImage> loadImage;
 
-    public MainWindow()
+    public MainWindow() : this(NativeScreen.Capture, BitmapAdapter.Load) { }
+
+    internal MainWindow(Func<CaptureArea, RgbImage> captureScreen, Func<string, RgbImage> loadImage)
     {
+        this.captureScreen = captureScreen;
+        this.loadImage = loadImage;
         InitializeComponent();
         TaskbarItemInfo = new TaskbarItemInfo();
         Closed += (_, _) => { closing = true; receiving?.Cancel(); player?.Close(); };
@@ -129,13 +135,13 @@ public partial class MainWindow : Window
     }
     private async void Receive_Click(object sender, RoutedEventArgs e) => await ReceiveAsync(true);
     private async void ManualReceive_Click(object sender, RoutedEventArgs e) => await ReceiveAsync(false);
-    private async Task ReceiveAsync(bool automatic)
+    internal async Task ReceiveAsync(bool automatic, CaptureArea? selectedArea = null)
     {
         if (receiving != null) return;
         DiagnosticSession? session = null;
         try
         {
-            CaptureArea? area = automatic ? null : SelectArea();
+            CaptureArea? area = automatic ? null : selectedArea ?? SelectArea();
             if (!automatic && area == null) return;
             session = BeginDiagnostics(automatic ? DiagnosticMode.AutomaticReceive : DiagnosticMode.ManualReceive);
             var tracker = new FrameTracker();
@@ -145,6 +151,7 @@ public partial class MainWindow : Window
             collector = new(); receivedEnvelope = null; SaveButton.IsEnabled = false;
             receiving = new CancellationTokenSource(); var token = receiving.Token;
             SetReceiving(true); WindowState = WindowState.Minimized; Show();
+            Progress();
             ReceiveStatus.Text = automatic ? "正在主螢幕尋找資料圖…" : "正在讀取框選區域…";
             await Task.Delay(300, token);
             while (!collector.Complete)
@@ -155,17 +162,20 @@ public partial class MainWindow : Window
                 {
                     if (automatic)
                     {
-                        var found = tracker.Read(b => NativeScreen.Capture(new(b.X, b.Y, b.Width, b.Height)),
+                        var found = tracker.Read(b => captureScreen(new(b.X, b.Y, b.Width, b.Height)),
                             new(desktop.X, desktop.Y, desktop.Width, desktop.Height));
                         return (Packet: found, Inspection: tracker.Inspection, Scale: tracker.Scale);
                     }
                     long started = Stopwatch.GetTimestamp();
-                    var inspection = FrameCodec.Inspect(NativeScreen.Capture(area!.Value));
+                    var inspection = FrameCodec.Inspect(captureScreen(area!.Value));
                     session.RecordInspection(inspection, NativeScreen.PrimaryMetrics(), area.Value.Width, area.Value.Height,
                         Stopwatch.GetElapsedTime(started).TotalMilliseconds, CaptureKind.ManualRegion);
                     var first = inspection.Packets.FirstOrDefault();
                     return (Packet: first?.Packet, Inspection: inspection, Scale: first?.Scale ?? 1);
                 }, token);
+                // Task.Run's token cannot cancel an image parser that already started.
+                // Discard its result if Stop/Close happened while it was running.
+                token.ThrowIfCancellationRequested();
                 var packet = result.Packet;
                 if (packet != null) collector.Add(packet);
                 session.RecordReceiveCycle(packet != null, collector.Count, collector.Total,
@@ -196,15 +206,22 @@ public partial class MainWindow : Window
     {
         var dialog = new OpenFileDialog { Filter = "截圖|*.png;*.bmp;*.jpg;*.jpeg", Multiselect = true };
         if (dialog.ShowDialog(this) != true) return;
+        await ImportAsync(dialog.FileNames);
+    }
+    internal async Task ImportAsync(IReadOnlyList<string> paths)
+    {
+        if (receiving != null) return;
         SetReceiving(true); SaveButton.IsEnabled = false; collector = new(); receivedEnvelope = null;
+        Progress();
         receiving = new CancellationTokenSource(); var token = receiving.Token;
         try
         {
             string? failedReason = null;
-            foreach (string path in dialog.FileNames)
+            foreach (string path in paths)
             {
                 token.ThrowIfCancellationRequested();
-                var inspection = await Task.Run(() => FrameCodec.Inspect(BitmapAdapter.Load(path)), token);
+                var inspection = await Task.Run(() => FrameCodec.Inspect(loadImage(path)), token);
+                token.ThrowIfCancellationRequested();
                 var packet = inspection.Packets.FirstOrDefault()?.Packet;
                 if (packet == null) failedReason = inspection.Message;
                 if (packet != null) collector.Add(packet);

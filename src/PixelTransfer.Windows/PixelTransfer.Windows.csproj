@@ -6,7 +6,7 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>PixelTransfer</AssemblyName>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.2</Version>
+    <Version>0.1.4-preview</Version>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../PixelTransfer.Core/PixelTransfer.Core.csproj" /></ItemGroup>
 </Project>

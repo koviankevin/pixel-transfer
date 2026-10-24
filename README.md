@@ -8,19 +8,30 @@
 
 ## 下載與執行
 
-從 [Releases](https://github.com/koviankevin/pixel-transfer/releases) 下載 `PixelTransfer-win-x64.zip`，在兩台 Windows 電腦解壓後執行 `PixelTransfer.exe`。發布包自帶 .NET 執行環境，不需另外安裝 Python 或 .NET。
+**v0.1.4-preview 已於 2026-10-23 21:20（台北時間）公開發布，仍為預覽版。** 從[本版 Release](https://github.com/koviankevin/pixel-transfer/releases/tag/v0.1.4-preview) 下載 [PixelTransfer-win-x64.zip](https://github.com/koviankevin/pixel-transfer/releases/download/v0.1.4-preview/PixelTransfer-win-x64.zip)，在兩台 Windows 電腦完整解壓後執行 `PixelTransfer.exe`。發布包自帶 .NET 執行環境，不需另外安裝 Python 或 .NET。
 
 這個儲存庫是公開的，任何人都可以查看原始碼，並直接下載已發布的 Release 附件，不需登入 GitHub。預覽版 EXE 未簽署程式碼簽章。
 
-也可以在 [Actions](https://github.com/koviankevin/pixel-transfer/actions) 下載成功建置的 `PixelTransfer-win-x64` 成品；GitHub 要求下載 Actions 成品時登入帳號，成品也有保存期限。Actions 成品可能包含尚未發布到 Release 的修改，請核對該次建置的來源提交與測試結果。
+0.1.4 沿用 [0.1.3 的定位效能改善](https://github.com/koviankevin/pixel-transfer/blob/main/.github/release-notes/v0.1.3-preview.md)，並新增診斷 JSON 匯出、1／10／60 分鐘連續校驗、MIT 授權檔，以及停止接收／匯入後丟棄尚在解析之圖片的修正。新操作會清除舊進度；停止後仍可重新接收。既有 0.1.3 Release 不會隨原始碼更新，也不含這些新增項目。詳見 [0.1.4 版本說明](https://github.com/koviankevin/pixel-transfer/blob/main/.github/release-notes/v0.1.4-preview.md)。
 
-正在準備的 **0.1.4-preview** 包含診斷 JSON 匯出、MIT 授權檔，以及停止接收／匯入後丟棄尚在解析之圖片的修正。新操作會清除舊進度；停止後仍可重新接收。既有 0.1.3 Release 不會隨原始碼更新；請核對下載來源與版本。詳見 [0.1.4 版本說明](https://github.com/koviankevin/pixel-transfer/blob/main/.github/release-notes/v0.1.4-preview.md)。
+本版來源為 [`57e2d5dd035db32707024159446976003b279e9b`](https://github.com/koviankevin/pixel-transfer/commit/57e2d5dd035db32707024159446976003b279e9b)，已通過合併後 main 的 [Windows CI](https://github.com/koviankevin/pixel-transfer/actions/runs/39959531448) 與[發布流程](https://github.com/koviankevin/pixel-transfer/actions/runs/39960232362)。**真實兩台 Windows 電腦間的 RDP 傳輸仍尚未驗證；CI 成功不代表實際 RDP 已通過。**
+
+下載同版的 [SHA-256 校驗檔](https://github.com/koviankevin/pixel-transfer/releases/download/v0.1.4-preview/PixelTransfer-win-x64.zip.sha256)，在 ZIP 所在目錄以 PowerShell 執行：
+
+```powershell
+Get-FileHash .\PixelTransfer-win-x64.zip -Algorithm SHA256
+Get-Content .\PixelTransfer-win-x64.zip.sha256
+```
+
+兩者的 SHA-256 應一致（不分大小寫）；v0.1.4-preview ZIP 的預期值為 `0eb86199b3d8772705c367d19c02be5c97910118df73de05c0ee8c98eb82272b`。若不一致，請重新下載並核對版本。
+
+若要測試尚未發布的修改，也可以在 [Actions](https://github.com/koviankevin/pixel-transfer/actions) 下載成功建置的 `PixelTransfer-win-x64` 成品；GitHub 要求下載 Actions 成品時登入帳號，成品也有保存期限。請核對該次建置的來源提交與測試結果；使用已發布的 0.1.4 預覽版可直接下載上述 Release ZIP。
 
 ### 授權與既有版本
 
 公開分享採用 MIT 授權；下載者可使用、修改、商用及再散布，但須保留版權與授權聲明。v0.1.0-preview 至 v0.1.3-preview 的既有 ZIP 未內附 `LICENSE`；再散布這些版本時，請一併附上[本專案的 MIT 授權聲明](https://github.com/koviankevin/pixel-transfer/blob/4a0a38374670c6c465a5e6264ff362c00c19970b/LICENSE)。原 ZIP、版本標籤及校驗值維持不變，不會因 README 或 main 更新而重新打包。
 
-後續 Windows 建置會附上 `LICENSE`。發布流程會在建立版本標籤前，確認成品及 ZIP 內的授權聲明與建置來源提交一致；缺少授權的舊成品不能直接作為新 Release 發布。
+v0.1.4-preview ZIP 已附上 `LICENSE`，後續 Windows 建置也會附上。發布流程會在建立版本標籤前，確認成品及 ZIP 內的授權聲明與建置來源提交一致；缺少授權的舊成品不能直接作為新 Release 發布。
 
 ## 第一次使用：校驗 RDP
 
@@ -37,7 +48,7 @@
 
 校驗、自動接收及手動接收會記錄本次數值診斷，完成或停止後在「診斷紀錄」匯出 JSON。RDP 校驗可連續量測 1／10／60 分鐘。報告含本地主螢幕解析度／DPI、定位率、CRC 失敗擷取數、重新定位與時間；不包含畫面、內容、密碼、檔名或傳輸 ID。只保留最近 256 筆明細與完整累計數。
 
-**開始下一次操作前先匯出，關閉程式會遺失未匯出紀錄。** 程式不能自動判定真實 RDP 已通過，診斷一律保留 `RealRdpValidation: not-verified`。請參考 [可重複 RDP 測試步驟及結果範本](docs/RDP-VALIDATION.md)，使用附帶腳本產生合成資料，分開記錄 CI、本地 smoke 與實際 RDP 結果。此功能須使用包含本修改的建置；v0.1.3-preview 原有 Release 不會自動更新。
+**開始下一次操作前先匯出，關閉程式會遺失未匯出紀錄。** 程式不能自動判定真實 RDP 已通過，診斷一律保留 `RealRdpValidation: not-verified`。請參考 [可重複 RDP 測試步驟及結果範本](docs/RDP-VALIDATION.md)，使用附帶腳本產生合成資料，分開記錄 CI、本地 smoke 與實際 RDP 結果。此功能已包含於 v0.1.4-preview Release；v0.1.3-preview 原有 Release 不會自動更新。
 
 ## 發送
 
@@ -102,6 +113,8 @@ dotnet publish src/PixelTransfer.Windows -c Release -r win-x64 --self-contained 
 GitHub Actions 執行核心測試、Windows 建置與實際 WPF 視窗／GDI 擷取測試。後者也可在 Windows 以 `PixelTransfer.exe --self-test windows-smoke.txt` 執行。這些測試不等於使用者的真實 RDP 環境測試；不同 DPI、多螢幕、HDR、RDP 編碼設定仍須實機校驗。
 
 `--self-test` 亦涵蓋自動接收、手動接收與截圖匯入：在首張或最後一張圖片處理期間停止，確認不接納該張、不啟用儲存，並驗證同一視窗可重新收齊。單獨執行這六個情境可用 `PixelTransfer.exe --self-test-receive receive-smoke.txt`；測試透過相同的 WPF 接收流程使用合成圖片，不讀取使用者截圖。
+
+維護者發布下一版時，請新增對應的 `.github/release-notes/<新標籤>.md`，並以成功的 main Windows CI run ID、新標籤及版本說明路徑執行 [release.yml](https://github.com/koviankevin/pixel-transfer/blob/main/.github/workflows/release.yml)。流程會附加該次建置的來源提交、CI 及 ZIP SHA-256；不要沿用舊版的固定校驗值，也不要重新發布既有標籤。
 
 ## 格式
 
